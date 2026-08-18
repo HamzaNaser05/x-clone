@@ -6,6 +6,7 @@ import { connectPostgreSQL } from './db/prisma.js';
 import cookieParser from 'cookie-parser';
 import { v2 as cloudinary } from "cloudinary"
 import postRoutes from "./routes/post.routes.js"
+import notificationsRoutes from "./routes/notifications.routes.js"
 
 dotenv.config();
 cloudinary.config({
@@ -24,6 +25,7 @@ app.use(cookieParser())
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/posts", postRoutes);
+app.use("/api/notifications", notificationsRoutes)
 
 app.get('/', (req, res) => {
     res.send("Server is ready")
