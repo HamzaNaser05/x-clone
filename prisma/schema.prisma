@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum NotificationType {
+  follow
+  like
+}
+
+model User {
+  id         String   @id @default(uuid()) @db.Uuid
+  username   String   @unique @db.VarChar(50)
+  fullName   String   @map("full_name") @db.VarChar(100)
+  email      String   @unique @db.VarChar(255)
+  password   String   @map("password_hash")
+  profileImg String   @default("") @map("profile_img")
+  coverImg   String   @default("") @map("cover_img")
+  bio        String   @default("")
+  link       String   @default("")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  posts     Post[]
+  comments  Comment[]
+  likes     Like[]
+  reposts   Repost[]
+  bookmarks Bookmark[]
+
+  following Follow[] @relation("Following")
+  followers Follow[] @relation("Followers")
+
+  sentNotifications     Notification[] @relation("NotificationFrom")
+  receivedNotifications Notification[] @relation("NotificationTo")
+
+  @@map("users")
+}
+
+model Post {
+  id        String   @id @default(uuid()) @db.Uuid
+  authorId  String   @map("author_id") @db.Uuid
+  text      String?
+  img       String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  author    User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments  Comment[]
+  likes     Like[]
+  reposts   Repost[]
+  bookmarks Bookmark[]
+
+  @@index([authorId])
+  @@index([createdAt(sort: Desc)])
+  @@map("posts")
+}
+
+model Comment {
+  id        String   @id @default(uuid()) @db.Uuid
+  postId    String   @map("post_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  text      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+  @@index([userId])
+  @@map("comments")
+}
+
+model Follow {
+  followerId  String   @map("follower_id") @db.Uuid
+  followingId String   @map("following_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  follower  User @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("Followers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followingId])
+  @@index([followingId])
+  @@map("follows")
+}
+
+model Like {
+  postId    String   @map("post_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([postId, userId])
+  @@index([userId])
+  @@map("likes")
+}
+
+model Repost {
+  postId    String   @map("post_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([postId, userId])
+  @@index([userId])
+  @@map("reposts")
+}
+
+model Bookmark {
+  postId    String   @map("post_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([postId, userId])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("bookmarks")
+}
+
+model Notification {
+  id         String           @id @default(uuid()) @db.Uuid
+  fromUserId String           @map("from_user_id") @db.Uuid
+  toUserId   String           @map("to_user_id") @db.Uuid
+  type       NotificationType
+  read       Boolean          @default(false)
+  createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+
+  from User @relation("NotificationFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  to   User @relation("NotificationTo", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@index([toUserId, createdAt(sort: Desc)])
+  @@map("notifications")
+}
