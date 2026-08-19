@@ -1,5 +1,6 @@
 import { v2 as cloudniary } from "cloudinary";
 import prisma from "../db/prisma.js";
+import { publishNotification } from "../services/notificationStream.service.js";
 
 export const createPost = async (req, res) => {
     try {
@@ -95,33 +96,50 @@ export const commentOnPost = async (req, res) => {
             return res.status(400).json({ message: "Text field is required" });
         }
         const post = await prisma.post.findUnique({
-            where: {
-                id: postId
-            },
-            include: {
-                comments: true,
-                likes: true
+            where: { id: postId },
+            select: {
+                id: true,
+                authorId: true
             }
         })
         if (!post) {
             return res.status(404).json({ message: "Post not found" });
         }
 
-        const comment = await prisma.comment.create({
+        const commentQuery = prisma.comment.create({
             data: {
                 text,
                 postId,
-                userId: userId
+                userId
             },
             include: {
                 user: {
                     omit: {
                         password: true
-                    },
-                },
+                    }
+                }
             }
-        })
-        return res.status(201).json(post);
+        });
+
+        if (post.authorId === userId) {
+            const comment = await commentQuery;
+            return res.status(201).json(comment);
+        }
+
+        const [comment, notification] = await prisma.$transaction([
+            commentQuery,
+            prisma.notification.create({
+                data: {
+                    type: "comment",
+                    toUserId: post.authorId,
+                    fromUserId: userId,
+                    postId
+                }
+            })
+        ]);
+
+        publishNotification(post.authorId, notification);
+        return res.status(201).json(comment);
     } catch (error) {
         console.error("Error commenting on post:", error);
         res.status(500).json({ message: "Internal server error" });
@@ -156,19 +174,31 @@ export const likeUnlikePost = async (req, res) => {
             return res.status(200).json({ message: "Post unliked successfully" });
         } else {
             //Like a post
-            await prisma.like.create({
+            const likeQuery = prisma.like.create({
                 data: {
                     postId,
                     userId
                 }
-            })
-            await prisma.notification.create({
-                data: {
-                    type: "like",
-                    toUserId: post.authorId,
-                    fromUserId: userId
-                }
-            })
+            });
+
+            if (post.authorId === userId) {
+                await likeQuery;
+                return res.status(200).json({ message: "Post liked successfully" });
+            }
+
+            const [, notification] = await prisma.$transaction([
+                likeQuery,
+                prisma.notification.create({
+                    data: {
+                        type: "like",
+                        toUserId: post.authorId,
+                        fromUserId: userId,
+                        postId
+                    }
+                })
+            ]);
+
+            publishNotification(post.authorId, notification);
             return res.status(200).json({ message: "Post liked successfully" });
         }
     } catch (error) {
@@ -176,6 +206,38 @@ export const likeUnlikePost = async (req, res) => {
         res.status(500).json({ error: "Internal Server Error" })
     }
 }
+
+export const getPostById = async (req, res) => {
+    try {
+        const post = await prisma.post.findUnique({
+            where: { id: req.params.id },
+            include: {
+                author: {
+                    omit: { password: true }
+                },
+                comments: {
+                    orderBy: { createdAt: "asc" },
+                    include: {
+                        user: {
+                            omit: { password: true }
+                        }
+                    }
+                },
+                likes: true,
+                reposts: true
+            }
+        });
+
+        if (!post) {
+            return res.status(404).json({ error: "Post not found" });
+        }
+
+        return res.status(200).json(post);
+    } catch (error) {
+        console.error("Error fetching post:", error);
+        return res.status(500).json({ error: "Internal server error" });
+    }
+};
 
 export const getAllPosts = async (req, res) => {
     try {
@@ -195,7 +257,9 @@ export const getAllPosts = async (req, res) => {
                             }
                         }
                     }
-                }
+                },
+                likes: true,
+                reposts: true
             }
         }
         )
@@ -246,7 +310,9 @@ export const getLikedPosts = async (req, res) => {
                             }
                         }
                     }
-                }
+                },
+                likes: true,
+                reposts: true
             },
             orderBy: {
                 createdAt: "desc"
@@ -303,7 +369,9 @@ export const getFollowingPosts = async (req, res) => {
                             }
                         }
                     }
-                }
+                },
+                likes: true,
+                reposts: true
             }
         })
         return res.status(200).json(posts);
@@ -329,7 +397,8 @@ export const getUserPosts = async (req, res) => {
                                 }
                             }
                         },
-                        likes: true
+                        likes: true,
+                        reposts: true
                     }
                 }
             }
@@ -342,3 +411,174 @@ export const getUserPosts = async (req, res) => {
         res.status(500).json({error: "Internal server error"});
     }
 }
+
+export const bookmarkUnbookmarkPost = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { id: postId } = req.params;
+
+        const post = await prisma.post.findUnique({
+            where: { id: postId },
+            select: { id: true }
+        });
+
+        if (!post) {
+            return res.status(404).json({ error: "Post not found" });
+        }
+
+        const bookmark = await prisma.bookmark.findUnique({
+            where: {
+                postId_userId: {
+                    postId,
+                    userId
+                }
+            }
+        });
+
+        if (bookmark) {
+            await prisma.bookmark.delete({
+                where: {
+                    postId_userId: {
+                        postId,
+                        userId
+                    }
+                }
+            });
+
+            return res.status(200).json({
+                message: "Post removed from bookmarks",
+                bookmarked: false
+            });
+        }
+
+        await prisma.bookmark.create({
+            data: {
+                postId,
+                userId
+            }
+        });
+
+        return res.status(200).json({
+            message: "Post bookmarked successfully",
+            bookmarked: true
+        });
+    } catch (error) {
+        console.error("Error bookmarking post:", error);
+        return res.status(500).json({ error: "Internal server error" });
+    }
+};
+
+export const getBookmarkedPosts = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const bookmarks = await prisma.bookmark.findMany({
+            where: { userId },
+            orderBy: { createdAt: "desc" },
+            include: {
+                post: {
+                    include: {
+                        author: {
+                            omit: { password: true }
+                        },
+                        comments: {
+                            include: {
+                                user: {
+                                    omit: { password: true }
+                                }
+                            }
+                        },
+                        likes: true,
+                        reposts: true
+                    }
+                }
+            }
+        });
+
+        const posts = bookmarks.map(({ post }) => ({
+            ...post,
+            isBookmarked: true
+        }));
+
+        return res.status(200).json(posts);
+    } catch (error) {
+        console.error("Error fetching bookmarked posts:", error);
+        return res.status(500).json({ error: "Internal server error" });
+    }
+};
+
+export const repostUnrepostPost = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { id: postId } = req.params;
+
+        const post = await prisma.post.findUnique({
+            where: { id: postId },
+            select: {
+                id: true,
+                authorId: true
+            }
+        });
+
+        if (!post) {
+            return res.status(404).json({ error: "Post not found" });
+        }
+
+        const repost = await prisma.repost.findUnique({
+            where: {
+                postId_userId: {
+                    postId,
+                    userId
+                }
+            }
+        });
+
+        if (repost) {
+            await prisma.repost.delete({
+                where: {
+                    postId_userId: {
+                        postId,
+                        userId
+                    }
+                }
+            });
+        } else if (post.authorId === userId) {
+            await prisma.repost.create({
+                data: {
+                    postId,
+                    userId
+                }
+            });
+        } else {
+            const [, notification] = await prisma.$transaction([
+                prisma.repost.create({
+                    data: {
+                        postId,
+                        userId
+                    }
+                }),
+                prisma.notification.create({
+                    data: {
+                        type: "repost",
+                        toUserId: post.authorId,
+                        fromUserId: userId,
+                        postId
+                    }
+                })
+            ]);
+
+            publishNotification(post.authorId, notification);
+        }
+
+        const reposts = await prisma.repost.findMany({
+            where: { postId },
+            orderBy: { createdAt: "asc" },
+            select: { userId: true }
+        });
+
+        return res.status(200).json(reposts.map(({ userId: repostUserId }) => repostUserId));
+    } catch (error) {
+        console.error("Error reposting post:", error);
+        return res.status(500).json({ error: "Internal server error" });
+    }
+};

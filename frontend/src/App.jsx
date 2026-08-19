@@ -1,122 +1,86 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { Navigate, Route, Routes } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { Toaster } from "react-hot-toast";
+
+import BookmarksPage from "./pages/bookmarks/BookmarksPage";
+import HomePage from "./pages/home/HomePage";
+import LoginPage from "./pages/auth/login/LoginPage";
+import NotificationPage from "./pages/notification/NotificationPage";
+import PostPage from "./pages/post/PostPage";
+import ProfilePage from "./pages/profile/ProfilePage";
+import SignUpPage from "./pages/auth/signup/SignUpPage";
+import LoadingSpinner from "./components/common/LoadingSpinner";
+import RightPanel from "./components/common/RightPanel";
+import Sidebar from "./components/common/Sidebar";
+import { apiRequest } from "./lib/api";
 
 function App() {
-  const [count, setCount] = useState(0)
+	const {
+		data: authUser,
+		isLoading,
+		isError,
+		refetch,
+	} = useQuery({
+		queryKey: ["authUser"],
+		queryFn: async () => {
+			try {
+				return await apiRequest("/api/auth/me");
+			} catch (error) {
+				if (error.status === 401 || error.status === 404) return null;
+				throw error;
+			}
+		},
+		retry: false,
+	});
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+	if (isLoading) {
+		return (
+			<div className='grid min-h-screen place-items-center'>
+				<LoadingSpinner size='lg' />
+			</div>
+		);
+	}
 
-      <div className="ticks"></div>
+	if (isError) {
+		return (
+			<div className='grid min-h-screen place-items-center px-6 text-center'>
+				<div>
+					<p className='text-lg font-bold'>Unable to reach the API.</p>
+					<p className='mt-1 text-sm text-slate-500'>Make sure the backend is running on port 5000.</p>
+					<button className='btn btn-primary btn-sm mt-4 rounded-full text-white' onClick={() => refetch()}>
+						Try again
+					</button>
+				</div>
+			</div>
+		);
+	}
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+	return (
+		<div className='mx-auto flex min-h-screen max-w-6xl'>
+			{authUser && <Sidebar />}
+			<Routes>
+				<Route path='/' element={authUser ? <HomePage /> : <Navigate to='/login' replace />} />
+				<Route path='/login' element={!authUser ? <LoginPage /> : <Navigate to='/' replace />} />
+				<Route path='/signup' element={!authUser ? <SignUpPage /> : <Navigate to='/' replace />} />
+				<Route
+					path='/notifications'
+					element={authUser ? <NotificationPage /> : <Navigate to='/login' replace />}
+				/>
+				<Route
+					path='/bookmarks'
+					element={authUser ? <BookmarksPage /> : <Navigate to='/login' replace />}
+				/>
+				<Route
+					path='/profile/:username'
+					element={authUser ? <ProfilePage /> : <Navigate to='/login' replace />}
+				/>
+				<Route path='/post/:id' element={authUser ? <PostPage /> : <Navigate to='/login' replace />} />
+				<Route path='*' element={<Navigate to={authUser ? "/" : "/login"} replace />} />
+			</Routes>
+			{authUser && <RightPanel />}
+			<Toaster position='top-center' toastOptions={{ duration: 3500 }} />
+		</div>
+	);
 }
 
-export default App
+export default App;

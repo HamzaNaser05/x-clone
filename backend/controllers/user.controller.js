@@ -1,21 +1,32 @@
 import prisma from "../db/prisma.js";
 import { v2 as cloudinary } from "cloudinary"
 import bcrypt from "bcryptjs";
+import { publishNotification } from "../services/notificationStream.service.js";
 
 export const getUserProfile = async (req, res) => {
     const { username } = req.params;
 
     try {
         const user = await prisma.user.findUnique({
-            where: { username }
-            ,
-            omit: { password: true }
-        }
-        )
+            where: { username },
+            omit: { password: true },
+            include: {
+                followers: {
+                    where: { followerId: req.user.id },
+                    select: { followerId: true },
+                    take: 1
+                }
+            }
+        })
         if (!user) {
             return res.status(404).json({ error: "User not found" })
         }
-        res.status(200).json(user);
+
+        const { followers, ...profile } = user;
+        res.status(200).json({
+            ...profile,
+            isFollowing: followers.length > 0
+        });
     } catch (error) {
         res.status(500).json({ error: error.message })
         console.log("Error in getUserProfile", error.message);
@@ -62,11 +73,12 @@ export const followUnfollowUser = async (req, res) => {
             });
 
             return res.status(200).json({
-                message: "User unfollowed successfully"
+                message: "User unfollowed successfully",
+                isFollowing: false
             });
         }
 
-        await prisma.$transaction([
+        const [, notification] = await prisma.$transaction([
             prisma.follow.create({
                 data: {
                     followerId: currentUserId,
@@ -82,8 +94,11 @@ export const followUnfollowUser = async (req, res) => {
             })
         ]);
 
+        publishNotification(id, notification);
+
         return res.status(200).json({
-            message: "User followed successfully"
+            message: "User followed successfully",
+            isFollowing: true
         });
     } catch (error) {
         console.log("Error in followUnfollowUser", error.message);

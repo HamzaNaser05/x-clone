@@ -9,6 +9,8 @@ datasource db {
 enum NotificationType {
   follow
   like
+  comment
+  repost
 }
 
 model User {
@@ -52,6 +54,7 @@ model Post {
   likes     Like[]
   reposts   Repost[]
   bookmarks Bookmark[]
+  notifications Notification[]
 
   @@index([authorId])
   @@index([createdAt(sort: Desc)])
@@ -130,6 +133,7 @@ model Notification {
   id         String           @id @default(uuid()) @db.Uuid
   fromUserId String           @map("from_user_id") @db.Uuid
   toUserId   String           @map("to_user_id") @db.Uuid
+  postId     String?          @map("post_id") @db.Uuid
   type       NotificationType
   read       Boolean          @default(false)
   createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz
@@ -137,7 +141,10 @@ model Notification {
 
   from User @relation("NotificationFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
   to   User @relation("NotificationTo", fields: [toUserId], references: [id], onDelete: Cascade)
+  post Post? @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@index([toUserId, createdAt(sort: Desc)])
+  @@index([toUserId, read])
+  @@index([postId])
   @@map("notifications")
 }
