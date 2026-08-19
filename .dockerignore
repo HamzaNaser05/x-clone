@@ -1,0 +1,15 @@
+.git
+.gitignore
+.agents
+.claude
+.codex
+.windsurf
+.env
+.env.*
+!.env.example
+node_modules
+frontend/node_modules
+frontend/dist
+npm-debug.log*
+frontend/npm-debug.log*
+ui-design-tips.md

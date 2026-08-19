@@ -1,4 +1,7 @@
 import express from 'express';
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import authRoutes from './routes/auth.routes.js';
 import userRoutes from "./routes/user.routes.js";
 import dotenv from 'dotenv';
@@ -19,13 +22,16 @@ cloudinary.config({
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
+const frontendDirectory = path.resolve(currentDirectory, "../frontend/dist");
+const frontendEntryPoint = path.join(frontendDirectory, "index.html");
 
 app.use(express.json({ limit: "8mb" }))
 app.use(express.urlencoded({ extended: true, limit: "8mb" }))
 app.use(cookieParser())
 app.use(
     cors({
-        origin: "http://localhost:3000",
+        origin: process.env.CLIENT_URL || "http://localhost:3000",
         credentials: true,
     })
 );
@@ -36,9 +42,24 @@ app.use("/api/posts", postRoutes);
 app.use("/api/notifications", notificationsRoutes)
 app.use("/api/search", searchRoutes)
 
-app.get('/', (req, res) => {
-    res.send("Server is ready")
-})
+app.get("/api/health", (req, res) => {
+    res.status(200).json({ status: "ok" });
+});
+
+app.use("/api", (req, res) => {
+    res.status(404).json({ error: "API route not found" });
+});
+
+if (existsSync(frontendEntryPoint)) {
+    app.use(express.static(frontendDirectory));
+    app.get("/{*splat}", (req, res) => {
+        res.sendFile(frontendEntryPoint);
+    });
+} else {
+    app.get("/", (req, res) => {
+        res.send("Server is ready");
+    });
+}
 
 app.use((error, req, res, next) => {
     if (error.type === "entity.too.large") {
