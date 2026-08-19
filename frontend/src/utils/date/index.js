@@ -21,3 +21,10 @@ export const formatMemberSinceDate = (createdAt) => {
 	if (Number.isNaN(date.getTime())) return "";
 	return `Joined ${date.toLocaleDateString("en-US", { month: "long", year: "numeric" })}`;
 };
+
+export const wasEdited = (createdAt, updatedAt) => {
+	const created = new Date(createdAt).getTime();
+	const updated = new Date(updatedAt).getTime();
+
+	return Number.isFinite(created) && Number.isFinite(updated) && updated - created > 1_000;
+};

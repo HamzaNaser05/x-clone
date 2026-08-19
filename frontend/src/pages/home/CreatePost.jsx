@@ -8,6 +8,8 @@ import toast from "react-hot-toast";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import { apiRequest } from "../../lib/api";
 
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+
 const CreatePost = () => {
 	const [text, setText] = useState("");
 	const [img, setImg] = useState(null);
@@ -29,15 +31,29 @@ const CreatePost = () => {
 
 	const handleSubmit = (event) => {
 		event.preventDefault();
-		if (!text.trim() || isPending) return;
+		if ((!text.trim() && !img) || isPending) return;
 		createPost({ text: text.trim(), img });
 	};
 
 	const handleImageChange = (event) => {
 		const file = event.target.files?.[0];
 		if (!file) return;
+
+		if (!file.type.startsWith("image/")) {
+			toast.error("Please choose a valid image file");
+			event.target.value = "";
+			return;
+		}
+
+		if (file.size > MAX_IMAGE_SIZE) {
+			toast.error("Image must be smaller than 5 MB");
+			event.target.value = "";
+			return;
+		}
+
 		const reader = new FileReader();
 		reader.onload = () => setImg(reader.result);
+		reader.onerror = () => toast.error("Unable to read this image");
 		reader.readAsDataURL(file);
 	};
 
@@ -82,7 +98,7 @@ const CreatePost = () => {
 				<input type='file' accept='image/*' hidden ref={imgRef} onChange={handleImageChange} />
 				<button
 					className='btn btn-primary btn-sm rounded-full px-5 text-white'
-					disabled={!text.trim() || isPending}
+					disabled={(!text.trim() && !img) || isPending}
 				>
 					{isPending ? <LoadingSpinner size='sm' /> : "Post"}
 				</button>

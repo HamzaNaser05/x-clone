@@ -1,6 +1,6 @@
 import prisma from "../db/prisma.js";
-import { v2 as cloudinary } from "cloudinary"
 import bcrypt from "bcryptjs";
+import { deleteImage, uploadImage } from "../services/cloudinary.service.js";
 import { publishNotification } from "../services/notificationStream.service.js";
 
 export const getUserProfile = async (req, res) => {
@@ -168,22 +168,14 @@ export const updateUser = async (req, res) => {
             user.password = await bcrypt.hash(newPassword, salt)
         }
         if (profileImg) {
-
-            if (user.profileImg) {
-                await cloudinary.uploader.destroy(user.profileImg.split("/").pop().split(".")[0])
-            }
-
-            const uploadedResponse = await cloudinary.uploader.upload(profileImg)
-            profileImg = uploadedResponse.secure_url
+            const previousProfileImg = user.profileImg;
+            profileImg = await uploadImage(profileImg);
+            await deleteImage(previousProfileImg);
         }
         if (coverImg) {
-
-            if (coverImg) {
-                await cloudinary.uploader.destroy(user.coverImg.split("/").pop().split(".")[0])
-            }
-
-            const uploadedResponse = await cloudinary.uploader.upload(coverImg)
-            coverImg = uploadedResponse.secure_url
+            const previousCoverImg = user.coverImg;
+            coverImg = await uploadImage(coverImg);
+            await deleteImage(previousCoverImg);
         }
 
         user.fullName = fullName || user.fullName

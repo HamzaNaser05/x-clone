@@ -1,5 +1,5 @@
-import { v2 as cloudniary } from "cloudinary";
 import prisma from "../db/prisma.js";
+import { deleteImage, uploadImage } from "../services/cloudinary.service.js";
 import { publishNotification } from "../services/notificationStream.service.js";
 
 export const createPost = async (req, res) => {
@@ -19,23 +19,23 @@ export const createPost = async (req, res) => {
         const trimmedText =
             typeof text === "string" ? text.trim() : "";
 
-        if (!trimmedText) {
-            return res.status(400).json({ message: "Post must contain text" });
-        }
         if (!trimmedText && !img) {
             return res.status(400).json({ message: "Post must contain text or image" });
+        }
+
+        if (img && (typeof img !== "string" || !img.startsWith("data:image/"))) {
+            return res.status(400).json({ message: "Invalid image format" });
         }
 
         let imageUrl = null;
 
         if (img) {
-            const uploadedResponse = await cloudinary.uploader.upload(img)
-            imageUrl = uploadedResponse.secure_url;
+            imageUrl = await uploadImage(img);
         }
 
         const post = await prisma.post.create({
             data: {
-                text: trimmedText,
+                text: trimmedText || null,
                 img: imageUrl,
                 authorId: userId
 
@@ -70,8 +70,7 @@ export const deletePost = async (req, res) => {
             return res.status(403).json({ error: "You are not authorized to delete this post" })
         }
         if (post.img) {
-            const imgId = post.img.split("/").pop().split(".")[0];
-            await cloudniary.uploader.destroy(imgId);
+            await deleteImage(post.img);
         }
 
         await prisma.post.delete({
@@ -85,6 +84,44 @@ export const deletePost = async (req, res) => {
         res.status(500).json({ error: "Internal Server Error" })
     }
 }
+
+export const updatePost = async (req, res) => {
+    try {
+        const postId = req.params.id;
+        const userId = req.user.id;
+        const text = typeof req.body.text === "string" ? req.body.text.trim() : "";
+
+        if (!text) {
+            return res.status(400).json({ error: "Post text is required" });
+        }
+
+        const post = await prisma.post.findUnique({
+            where: { id: postId },
+            select: {
+                id: true,
+                authorId: true
+            }
+        });
+
+        if (!post) {
+            return res.status(404).json({ error: "Post not found" });
+        }
+
+        if (post.authorId !== userId) {
+            return res.status(403).json({ error: "You are not authorized to edit this post" });
+        }
+
+        const updatedPost = await prisma.post.update({
+            where: { id: postId },
+            data: { text }
+        });
+
+        return res.status(200).json(updatedPost);
+    } catch (error) {
+        console.error("Error updating post:", error);
+        return res.status(500).json({ error: "Internal server error" });
+    }
+};
 
 export const commentOnPost = async (req, res) => {
     try {
@@ -145,6 +182,49 @@ export const commentOnPost = async (req, res) => {
         res.status(500).json({ message: "Internal server error" });
     }
 }
+
+export const updateComment = async (req, res) => {
+    try {
+        const commentId = req.params.id;
+        const userId = req.user.id;
+        const text = typeof req.body.text === "string" ? req.body.text.trim() : "";
+
+        if (!text) {
+            return res.status(400).json({ error: "Comment text is required" });
+        }
+
+        const comment = await prisma.comment.findUnique({
+            where: { id: commentId },
+            select: {
+                id: true,
+                userId: true
+            }
+        });
+
+        if (!comment) {
+            return res.status(404).json({ error: "Comment not found" });
+        }
+
+        if (comment.userId !== userId) {
+            return res.status(403).json({ error: "You are not authorized to edit this comment" });
+        }
+
+        const updatedComment = await prisma.comment.update({
+            where: { id: commentId },
+            data: { text },
+            include: {
+                user: {
+                    omit: { password: true }
+                }
+            }
+        });
+
+        return res.status(200).json(updatedComment);
+    } catch (error) {
+        console.error("Error updating comment:", error);
+        return res.status(500).json({ error: "Internal server error" });
+    }
+};
 
 export const likeUnlikePost = async (req, res) => {
 

@@ -6,9 +6,11 @@ import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 
+import CommentItem from "./CommentItem";
+import EditPostDialog from "./EditPostDialog";
 import LoadingSpinner from "./LoadingSpinner";
 import { apiRequest } from "../../lib/api";
-import { formatPostDate } from "../../utils/date";
+import { formatPostDate, wasEdited } from "../../utils/date";
 
 const ownerId = (item) => (typeof item === "string" ? item : item?.userId || item?.id);
 
@@ -42,6 +44,25 @@ const Post = ({ post }) => {
 		queryClient.setQueryData(["post", post.id], (cachedPost) =>
 			cachedPost ? updater(cachedPost) : cachedPost,
 		);
+	};
+
+	const handlePostUpdated = (updatedPost) => {
+		updatePostInCaches((cachedPost) => ({
+			...cachedPost,
+			text: updatedPost.text,
+			updatedAt: updatedPost.updatedAt,
+		}));
+	};
+
+	const handleCommentUpdated = (updatedComment) => {
+		updatePostInCaches((cachedPost) => ({
+			...cachedPost,
+			comments: Array.isArray(cachedPost.comments)
+				? cachedPost.comments.map((cachedComment) => (
+					cachedComment.id === updatedComment.id ? updatedComment : cachedComment
+				))
+				: cachedPost.comments,
+		}));
 	};
 
 	const { mutate: deletePost, isPending: isDeleting } = useMutation({
@@ -128,17 +149,21 @@ const Post = ({ post }) => {
 					<span className='truncate'>@{postOwner.username || "user"}</span>
 					<span>·</span>
 					<span className='shrink-0'>{formatPostDate(post.createdAt)}</span>
+					{wasEdited(post.createdAt, post.updatedAt) && <span className='shrink-0'>(edited)</span>}
 				</span>
 				{isMyPost && (
-					<button
-						type='button'
-						className='ml-auto rounded-full p-2 text-slate-500 hover:bg-red-500/10 hover:text-red-500'
+					<div className='ml-auto flex shrink-0 items-center'>
+						<EditPostDialog post={post} onUpdated={handlePostUpdated} />
+						<button
+							type='button'
+							className='rounded-full p-2 text-slate-500 hover:bg-red-500/10 hover:text-red-500'
 							onClick={() => deleteDialogRef.current?.showModal()}
 							disabled={isDeleting}
 							aria-label='Delete post'
 						>
 							<FaTrash className='h-4 w-4' />
 						</button>
+					</div>
 				)}
 			</div>
 
@@ -226,24 +251,12 @@ const Post = ({ post }) => {
 					<div className='flex max-h-72 flex-col gap-4 overflow-auto'>
 						{comments.length === 0 && <p className='text-sm text-slate-500'>No comments yet. Be the first one.</p>}
 						{comments.map((postComment) => (
-							<div key={postComment.id} className='flex items-start gap-2'>
-								<div className='avatar'>
-									<div className='w-8 rounded-full'>
-										<img src={postComment.user?.profileImg || "/avatar-placeholder.png"} alt='' />
-									</div>
-								</div>
-								<div>
-									<p className='flex flex-wrap items-center gap-1 text-sm'>
-										<span className='font-bold'>{postComment.user?.fullName}</span>{" "}
-										<span className='text-slate-500'>@{postComment.user?.username}</span>
-										<span className='text-slate-500' aria-hidden='true'>·</span>
-										<time className='text-slate-500' dateTime={postComment.createdAt}>
-											{formatPostDate(postComment.createdAt)}
-										</time>
-									</p>
-									<p className='text-sm'>{postComment.text}</p>
-								</div>
-							</div>
+							<CommentItem
+								key={postComment.id}
+								comment={postComment}
+								authUserId={authUser?.id}
+								onUpdated={handleCommentUpdated}
+							/>
 						))}
 					</div>
 					<form className='mt-4 flex items-center gap-2 border-t border-gray-800 pt-3' onSubmit={submitComment}>

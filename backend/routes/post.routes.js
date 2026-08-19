@@ -12,6 +12,8 @@ import { bookmarkUnbookmarkPost } from "../controllers/post.controller.js";
 import { getBookmarkedPosts } from "../controllers/post.controller.js";
 import { repostUnrepostPost } from "../controllers/post.controller.js";
 import { getPostById } from "../controllers/post.controller.js";
+import { updatePost } from "../controllers/post.controller.js";
+import { updateComment } from "../controllers/post.controller.js";
 
 const router = express.Router();
 
@@ -26,6 +28,8 @@ router.post("/like/:id", protectRoute, likeUnlikePost);
 router.post("/comment/:id", protectRoute, commentOnPost);
 router.post("/bookmark/:id", protectRoute, bookmarkUnbookmarkPost);
 router.post("/repost/:id", protectRoute, repostUnrepostPost);
+router.patch("/comments/:id", protectRoute, updateComment);
+router.patch("/:id", protectRoute, updatePost);
 router.delete("/:id", protectRoute, deletePost);
 
 
