@@ -72,21 +72,51 @@ export const createPost = async (req, res) => {
             imageUrl = await uploadImage(img);
         }
 
-        const post = await prisma.post.create({
-            data: {
-                text: trimmedText || null,
-                img: imageUrl,
-                authorId: userId
-
-            },
-            include: {
-                author: {
-                    omit: {
-                        password: true
+        const { post, followerIds } = await prisma.$transaction(async (tx) => {
+            const followers = await tx.follow.findMany({
+                where: { followingId: userId },
+                select: { followerId: true }
+            });
+            const createdPost = await tx.post.create({
+                data: {
+                    text: trimmedText || null,
+                    img: imageUrl,
+                    authorId: userId
+                },
+                include: {
+                    author: {
+                        omit: { password: true }
                     }
                 }
+            });
+            const recipientIds = followers.map(({ followerId }) => followerId);
+
+            if (recipientIds.length > 0) {
+                await tx.notification.createMany({
+                    data: recipientIds.map((followerId) => ({
+                        type: "post",
+                        fromUserId: userId,
+                        toUserId: followerId,
+                        postId: createdPost.id
+                    }))
+                });
             }
-        })
+
+            return {
+                post: createdPost,
+                followerIds: recipientIds
+            };
+        });
+
+        for (const followerId of followerIds) {
+            publishNotification(followerId, {
+                type: "post",
+                fromUserId: userId,
+                toUserId: followerId,
+                postId: post.id,
+                createdAt: post.createdAt
+            });
+        }
 
         return res.status(201).json(post);
     } catch (error) {

@@ -1,5 +1,5 @@
 import { BiRepost } from "react-icons/bi";
-import { FaHeart, FaRegComment, FaReply, FaUser } from "react-icons/fa";
+import { FaHeart, FaRegComment, FaRegFileAlt, FaReply, FaUser } from "react-icons/fa";
 import { IoSettingsOutline } from "react-icons/io5";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -29,6 +29,10 @@ const notificationDetails = {
 	repost: {
 		message: "reposted your post",
 		icon: <BiRepost className='mt-1 h-7 w-7 shrink-0 text-green-500' />,
+	},
+	post: {
+		message: "created a new post",
+		icon: <FaRegFileAlt className='mt-1 h-7 w-7 shrink-0 text-primary' />,
 	},
 };
 
@@ -76,7 +80,7 @@ const NotificationPage = () => {
 			{!isLoading && !isError && notifications.length === 0 && (
 				<div className='px-6 py-14 text-center'>
 					<p className='font-bold'>No notifications yet</p>
-					<p className='mt-1 text-sm text-slate-500'>Likes, comments, replies, reposts, and new followers will appear here.</p>
+					<p className='mt-1 text-sm text-slate-500'>New posts, likes, comments, replies, reposts, and followers will appear here.</p>
 				</div>
 			)}
 			{notifications.map((notification) => (

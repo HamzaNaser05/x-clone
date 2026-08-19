@@ -12,6 +12,7 @@ enum NotificationType {
   comment
   reply
   repost
+  post
 }
 
 model User {
