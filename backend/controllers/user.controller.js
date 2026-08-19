@@ -15,6 +15,12 @@ export const getUserProfile = async (req, res) => {
                     where: { followerId: req.user.id },
                     select: { followerId: true },
                     take: 1
+                },
+                _count: {
+                    select: {
+                        following: true,
+                        followers: true
+                    }
                 }
             }
         })
@@ -22,10 +28,12 @@ export const getUserProfile = async (req, res) => {
             return res.status(404).json({ error: "User not found" })
         }
 
-        const { followers, ...profile } = user;
+        const { followers, _count, ...profile } = user;
         res.status(200).json({
             ...profile,
-            isFollowing: followers.length > 0
+            isFollowing: followers.length > 0,
+            followingCount: _count.following,
+            followersCount: _count.followers
         });
     } catch (error) {
         res.status(500).json({ error: error.message })
@@ -71,10 +79,14 @@ export const followUnfollowUser = async (req, res) => {
                     }
                 }
             });
+            const followersCount = await prisma.follow.count({
+                where: { followingId: id }
+            });
 
             return res.status(200).json({
                 message: "User unfollowed successfully",
-                isFollowing: false
+                isFollowing: false,
+                followersCount
             });
         }
 
@@ -95,10 +107,14 @@ export const followUnfollowUser = async (req, res) => {
         ]);
 
         publishNotification(id, notification);
+        const followersCount = await prisma.follow.count({
+            where: { followingId: id }
+        });
 
         return res.status(200).json({
             message: "User followed successfully",
-            isFollowing: true
+            isFollowing: true,
+            followersCount
         });
     } catch (error) {
         console.log("Error in followUnfollowUser", error.message);

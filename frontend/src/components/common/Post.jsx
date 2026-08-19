@@ -1,49 +1,35 @@
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { BiRepost } from "react-icons/bi";
-import { FaRegComment, FaRegHeart, FaTrash } from "react-icons/fa";
+import { FaRegHeart, FaTrash } from "react-icons/fa";
 import { FaBookmark, FaHeart, FaRegBookmark } from "react-icons/fa6";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 
-import CommentItem from "./CommentItem";
+import CommentsDialog from "./CommentsDialog";
 import EditPostDialog from "./EditPostDialog";
 import LoadingSpinner from "./LoadingSpinner";
 import { apiRequest } from "../../lib/api";
+import { updatePostCaches } from "../../lib/postCache";
 import { formatPostDate, wasEdited } from "../../utils/date";
 
 const ownerId = (item) => (typeof item === "string" ? item : item?.userId || item?.id);
 
 const Post = ({ post }) => {
-	const [comment, setComment] = useState("");
 	const deleteDialogRef = useRef(null);
 	const queryClient = useQueryClient();
 	const { data: authUser } = useQuery({ queryKey: ["authUser"] });
-	const { data: bookmarks = [] } = useQuery({
-		queryKey: ["bookmarkedPosts"],
-		queryFn: () => apiRequest("/api/posts/bookmarks"),
-		enabled: Boolean(authUser?.id),
-	});
 
 	const postOwner = post.author || {};
 	const likes = Array.isArray(post.likes) ? post.likes : [];
-	const comments = Array.isArray(post.comments) ? post.comments : [];
 	const reposts = Array.isArray(post.reposts) ? post.reposts : [];
 	const isLiked = likes.some((like) => ownerId(like) === authUser?.id);
-	const isBookmarked = bookmarks.some((bookmark) => bookmark.id === post.id);
+	const isBookmarked = Boolean(post.isBookmarked);
+	const commentCount = post.commentCount || 0;
 	const isMyPost = authUser?.id === (post.authorId || postOwner.id);
 
 	const updatePostInCaches = (updater) => {
-		const updatePosts = (cachedPosts) => {
-			if (!Array.isArray(cachedPosts)) return cachedPosts;
-			return cachedPosts.map((cachedPost) => (cachedPost.id === post.id ? updater(cachedPost) : cachedPost));
-		};
-
-		queryClient.setQueriesData({ queryKey: ["posts"] }, updatePosts);
-		queryClient.setQueryData(["bookmarkedPosts"], updatePosts);
-		queryClient.setQueryData(["post", post.id], (cachedPost) =>
-			cachedPost ? updater(cachedPost) : cachedPost,
-		);
+		updatePostCaches(queryClient, post.id, updater);
 	};
 
 	const handlePostUpdated = (updatedPost) => {
@@ -54,24 +40,12 @@ const Post = ({ post }) => {
 		}));
 	};
 
-	const handleCommentUpdated = (updatedComment) => {
-		updatePostInCaches((cachedPost) => ({
-			...cachedPost,
-			comments: Array.isArray(cachedPost.comments)
-				? cachedPost.comments.map((cachedComment) => (
-					cachedComment.id === updatedComment.id ? updatedComment : cachedComment
-				))
-				: cachedPost.comments,
-		}));
-	};
-
 	const { mutate: deletePost, isPending: isDeleting } = useMutation({
 		mutationFn: () => apiRequest(`/api/posts/${post.id}`, { method: "DELETE" }),
-		onSuccess: () => {
+			onSuccess: () => {
 			deleteDialogRef.current?.close();
 			toast.success("Post deleted successfully");
 			queryClient.invalidateQueries({ queryKey: ["posts"] });
-			queryClient.invalidateQueries({ queryKey: ["bookmarkedPosts"] });
 			queryClient.removeQueries({ queryKey: ["post", post.id] });
 		},
 		onError: (error) => toast.error(error.message),
@@ -92,26 +66,11 @@ const Post = ({ post }) => {
 		},
 	});
 
-	const { mutate: commentOnPost, isPending: isCommenting } = useMutation({
-		mutationFn: () => apiRequest(`/api/posts/comment/${post.id}`, { method: "POST", body: { text: comment } }),
-		onSuccess: () => {
-			setComment("");
-			toast.success("Comment posted successfully");
-			queryClient.invalidateQueries({ queryKey: ["posts"] });
-			queryClient.invalidateQueries({ queryKey: ["bookmarkedPosts"] });
-			queryClient.invalidateQueries({ queryKey: ["post", post.id] });
-		},
-		onError: (error) => toast.error(error.message),
-	});
-
 	const { mutate: toggleBookmark, isPending: isBookmarking } = useMutation({
 		mutationFn: () => apiRequest(`/api/posts/bookmark/${post.id}`, { method: "POST" }),
 		onSuccess: ({ bookmarked }) => {
-			queryClient.setQueryData(["bookmarkedPosts"], (currentBookmarks = []) =>
-				bookmarked
-					? [post, ...currentBookmarks.filter((bookmark) => bookmark.id !== post.id)]
-					: currentBookmarks.filter((bookmark) => bookmark.id !== post.id),
-			);
+			updatePostInCaches((cachedPost) => ({ ...cachedPost, isBookmarked: bookmarked }));
+			queryClient.invalidateQueries({ queryKey: ["posts", "bookmarks"] });
 			toast.success(bookmarked ? "Post saved" : "Post removed from bookmarks");
 		},
 		onError: (error) => toast.error(error.message),
@@ -126,12 +85,6 @@ const Post = ({ post }) => {
 		},
 		onError: (error) => toast.error(error.message),
 	});
-
-	const submitComment = (event) => {
-		event.preventDefault();
-		if (!comment.trim() || isCommenting) return;
-		commentOnPost();
-	};
 
 	return (
 		<article className='flex items-start gap-3 border-b border-gray-800 p-4 transition hover:bg-white/[0.02]'>
@@ -173,15 +126,11 @@ const Post = ({ post }) => {
 			</div>
 
 			<div className='mt-3 flex items-center justify-between text-slate-500'>
-				<button
-					type='button'
-					className='group flex items-center gap-1 hover:text-sky-400'
-					onClick={() => document.getElementById(`comments-modal-${post.id}`)?.showModal()}
-					aria-label='View comments'
-				>
-					<span className='rounded-full p-2 group-hover:bg-sky-400/10'><FaRegComment /></span>
-					<span className='text-xs'>{comments.length}</span>
-				</button>
+				<CommentsDialog
+					postId={post.id}
+					commentCount={commentCount}
+					authUserId={authUser?.id}
+				/>
 
 				<button
 					type='button'
@@ -244,35 +193,6 @@ const Post = ({ post }) => {
 						</form>
 					</dialog>
 				)}
-
-				<dialog id={`comments-modal-${post.id}`} className='modal'>
-				<div className='modal-box rounded-2xl border border-gray-700 bg-black'>
-					<h3 className='mb-4 text-lg font-bold'>Comments</h3>
-					<div className='flex max-h-72 flex-col gap-4 overflow-auto'>
-						{comments.length === 0 && <p className='text-sm text-slate-500'>No comments yet. Be the first one.</p>}
-						{comments.map((postComment) => (
-							<CommentItem
-								key={postComment.id}
-								comment={postComment}
-								authUserId={authUser?.id}
-								onUpdated={handleCommentUpdated}
-							/>
-						))}
-					</div>
-					<form className='mt-4 flex items-center gap-2 border-t border-gray-800 pt-3' onSubmit={submitComment}>
-						<textarea
-							className='textarea w-full resize-none rounded-xl border-gray-700 bg-transparent focus:outline-none'
-							placeholder='Add a comment...'
-							value={comment}
-							onChange={(event) => setComment(event.target.value)}
-						/>
-						<button className='btn btn-primary btn-sm rounded-full text-white' disabled={!comment.trim() || isCommenting}>
-							{isCommenting ? <LoadingSpinner size='sm' /> : "Post"}
-						</button>
-					</form>
-				</div>
-				<form method='dialog' className='modal-backdrop'><button>Close</button></form>
-			</dialog>
 		</div>
 	</article>
 	);

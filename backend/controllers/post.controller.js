@@ -1,6 +1,45 @@
 import prisma from "../db/prisma.js";
 import { deleteImage, uploadImage } from "../services/cloudinary.service.js";
 import { publishNotification } from "../services/notificationStream.service.js";
+import { getPostInclude, serializePost } from "../services/postQuery.service.js";
+import { createCursorPage, getPaginationParams } from "../utils/pagination.js";
+
+const getCommentInclude = () => ({
+    user: {
+        omit: { password: true }
+    },
+    _count: {
+        select: { replies: true }
+    }
+});
+
+const serializeComment = ({ _count, ...comment }) => ({
+    ...comment,
+    replyCount: _count.replies
+});
+
+const getPostPage = async ({ query, userId, where = {} }) => {
+    const { cursor, limit } = getPaginationParams(query);
+    const posts = await prisma.post.findMany({
+        where,
+        orderBy: [
+            { createdAt: "desc" },
+            { id: "desc" }
+        ],
+        take: limit + 1,
+        ...(cursor && {
+            cursor: { id: cursor },
+            skip: 1
+        }),
+        include: getPostInclude(userId)
+    });
+    const page = createCursorPage(posts, limit);
+
+    return {
+        posts: page.items.map(serializePost),
+        nextCursor: page.nextCursor
+    };
+};
 
 export const createPost = async (req, res) => {
     try {
@@ -125,7 +164,7 @@ export const updatePost = async (req, res) => {
 
 export const commentOnPost = async (req, res) => {
     try {
-        const { text } = req.body;
+        const text = typeof req.body.text === "string" ? req.body.text.trim() : "";
         const postId = req.params.id;
         const userId = req.user.id;
 
@@ -149,18 +188,12 @@ export const commentOnPost = async (req, res) => {
                 postId,
                 userId
             },
-            include: {
-                user: {
-                    omit: {
-                        password: true
-                    }
-                }
-            }
+            include: getCommentInclude()
         });
 
         if (post.authorId === userId) {
             const comment = await commentQuery;
-            return res.status(201).json(comment);
+            return res.status(201).json(serializeComment(comment));
         }
 
         const [comment, notification] = await prisma.$transaction([
@@ -176,7 +209,7 @@ export const commentOnPost = async (req, res) => {
         ]);
 
         publishNotification(post.authorId, notification);
-        return res.status(201).json(comment);
+        return res.status(201).json(serializeComment(comment));
     } catch (error) {
         console.error("Error commenting on post:", error);
         res.status(500).json({ message: "Internal server error" });
@@ -212,16 +245,161 @@ export const updateComment = async (req, res) => {
         const updatedComment = await prisma.comment.update({
             where: { id: commentId },
             data: { text },
-            include: {
-                user: {
-                    omit: { password: true }
-                }
+            include: getCommentInclude()
+        });
+
+        return res.status(200).json(serializeComment(updatedComment));
+    } catch (error) {
+        console.error("Error updating comment:", error);
+        return res.status(500).json({ error: "Internal server error" });
+    }
+};
+
+export const getComments = async (req, res) => {
+    try {
+        const postId = req.params.id;
+        const { cursor, limit } = getPaginationParams(req.query);
+        const post = await prisma.post.findUnique({
+            where: { id: postId },
+            select: { id: true }
+        });
+
+        if (!post) {
+            return res.status(404).json({ error: "Post not found" });
+        }
+
+        const comments = await prisma.comment.findMany({
+            where: {
+                postId,
+                parentId: null
+            },
+            orderBy: [
+                { createdAt: "desc" },
+                { id: "desc" }
+            ],
+            take: limit + 1,
+            ...(cursor && {
+                cursor: { id: cursor },
+                skip: 1
+            }),
+            include: getCommentInclude()
+        });
+        const page = createCursorPage(comments, limit);
+
+        return res.status(200).json({
+            comments: page.items.map(serializeComment),
+            nextCursor: page.nextCursor
+        });
+    } catch (error) {
+        console.error("Error fetching comments:", error);
+        return res.status(500).json({ error: "Internal server error" });
+    }
+};
+
+export const getReplies = async (req, res) => {
+    try {
+        const parentId = req.params.id;
+        const { cursor, limit } = getPaginationParams(req.query);
+        const parentComment = await prisma.comment.findUnique({
+            where: { id: parentId },
+            select: {
+                id: true,
+                parentId: true
             }
         });
 
-        return res.status(200).json(updatedComment);
+        if (!parentComment) {
+            return res.status(404).json({ error: "Comment not found" });
+        }
+
+        if (parentComment.parentId) {
+            return res.status(400).json({ error: "Replies can only be loaded for top-level comments" });
+        }
+
+        const replies = await prisma.comment.findMany({
+            where: { parentId },
+            orderBy: [
+                { createdAt: "desc" },
+                { id: "desc" }
+            ],
+            take: limit + 1,
+            ...(cursor && {
+                cursor: { id: cursor },
+                skip: 1
+            }),
+            include: getCommentInclude()
+        });
+        const page = createCursorPage(replies, limit);
+
+        return res.status(200).json({
+            replies: page.items.map(serializeComment),
+            nextCursor: page.nextCursor
+        });
     } catch (error) {
-        console.error("Error updating comment:", error);
+        console.error("Error fetching replies:", error);
+        return res.status(500).json({ error: "Internal server error" });
+    }
+};
+
+export const replyToComment = async (req, res) => {
+    try {
+        const parentId = req.params.id;
+        const userId = req.user.id;
+        const text = typeof req.body.text === "string" ? req.body.text.trim() : "";
+
+        if (!text) {
+            return res.status(400).json({ error: "Reply text is required" });
+        }
+
+        const parentComment = await prisma.comment.findUnique({
+            where: { id: parentId },
+            select: {
+                id: true,
+                postId: true,
+                userId: true,
+                parentId: true
+            }
+        });
+
+        if (!parentComment) {
+            return res.status(404).json({ error: "Comment not found" });
+        }
+
+        if (parentComment.parentId) {
+            return res.status(400).json({ error: "Only one level of replies is supported" });
+        }
+
+        const replyQuery = prisma.comment.create({
+            data: {
+                text,
+                postId: parentComment.postId,
+                userId,
+                parentId
+            },
+            include: getCommentInclude()
+        });
+
+        if (parentComment.userId === userId) {
+            const reply = await replyQuery;
+            return res.status(201).json(serializeComment(reply));
+        }
+
+        const [reply, notification] = await prisma.$transaction([
+            replyQuery,
+            prisma.notification.create({
+                data: {
+                    type: "reply",
+                    toUserId: parentComment.userId,
+                    fromUserId: userId,
+                    postId: parentComment.postId
+                }
+            })
+        ]);
+
+        publishNotification(parentComment.userId, notification);
+        return res.status(201).json(serializeComment(reply));
+    } catch (error) {
+        console.error("Error replying to comment:", error);
         return res.status(500).json({ error: "Internal server error" });
     }
 };
@@ -291,28 +469,14 @@ export const getPostById = async (req, res) => {
     try {
         const post = await prisma.post.findUnique({
             where: { id: req.params.id },
-            include: {
-                author: {
-                    omit: { password: true }
-                },
-                comments: {
-                    orderBy: { createdAt: "asc" },
-                    include: {
-                        user: {
-                            omit: { password: true }
-                        }
-                    }
-                },
-                likes: true,
-                reposts: true
-            }
+            include: getPostInclude(req.user.id)
         });
 
         if (!post) {
             return res.status(404).json({ error: "Post not found" });
         }
 
-        return res.status(200).json(post);
+        return res.status(200).json(serializePost(post));
     } catch (error) {
         console.error("Error fetching post:", error);
         return res.status(500).json({ error: "Internal server error" });
@@ -321,34 +485,12 @@ export const getPostById = async (req, res) => {
 
 export const getAllPosts = async (req, res) => {
     try {
-        const posts = await prisma.post.findMany({
-            orderBy: { createdAt: "desc" },
-            include: {
-                author: {
-                    omit: {
-                        password: true
-                    },
-                },
-                comments: {
-                    include: {
-                        user: {
-                            omit: {
-                                password: true
-                            }
-                        }
-                    }
-                },
-                likes: true,
-                reposts: true
-            }
-        }
-        )
+        const page = await getPostPage({
+            query: req.query,
+            userId: req.user.id
+        });
 
-        if (posts.length === 0) {
-            return res.status(204).json([]);
-        }
-
-        return res.status(200).json(posts);
+        return res.status(200).json(page);
     } catch (error) {
         console.error("Error fetching all posts:", error);
         res.status(500).json({ message: "Internal server error" });
@@ -359,46 +501,17 @@ export const getLikedPosts = async (req, res) => {
     const userId = req.user.id;
 
     try {
-        const user = await prisma.user.findUnique({
-            where: {
-                id: userId
-            }
-        }
-        )
-        if (!user) {
-            return res.status(404).json({ error: "User not found" });
-        }
-
-        const likedPosts = await prisma.post.findMany({
+        const page = await getPostPage({
+            query: req.query,
+            userId,
             where: {
                 likes: {
-                    some: {
-                        userId
-                    }
+                    some: { userId }
                 }
-            }, include: {
-                author: {
-                    omit: {
-                        password: true
-                    }
-                },
-                comments: {
-                    include: {
-                        user: {
-                            omit: {
-                                password: true
-                            }
-                        }
-                    }
-                },
-                likes: true,
-                reposts: true
-            },
-            orderBy: {
-                createdAt: "desc"
             }
-        })
-        return res.status(200).json(likedPosts);
+        });
+
+        return res.status(200).json(page);
     } catch (error) {
         console.error("Error fetching liked posts:", error);
         res.status(500).json({ message: "Internal server error" });
@@ -408,53 +521,23 @@ export const getLikedPosts = async (req, res) => {
 export const getFollowingPosts = async (req, res) => {
     try {
         const userId = req.user.id;
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            include: {
-                following: {
-                    select: {
-                        followingId: true
-                    }
-                }
-            }
-        })
-        if (!user) return res.status(404).json({ error: "User not found" });
-
-        const followingIds = user.following.map(followedUser => followedUser.followingId);
-
-        if (followingIds.length === 0) {
-            return res.status(200).json([]);
-        }
-
-        const posts = await prisma.post.findMany({
+        const following = await prisma.follow.findMany({
+            where: {
+                followerId: userId
+            },
+            select: { followingId: true }
+        });
+        const page = await getPostPage({
+            query: req.query,
+            userId,
             where: {
                 authorId: {
-                    in: followingIds
+                    in: following.map(({ followingId }) => followingId)
                 }
-            },
-            orderBy: {
-                createdAt: "desc"
-            },
-            include: {
-                author: {
-                    omit: {
-                        password: true
-                    }
-                },
-                comments: {
-                    include: {
-                        user: {
-                            omit: {
-                                password: true
-                            }
-                        }
-                    }
-                },
-                likes: true,
-                reposts: true
             }
-        })
-        return res.status(200).json(posts);
+        });
+
+        return res.status(200).json(page);
     } catch (error) {
         console.error("Error fetching following posts:", error);
         res.status(500).json({ message: "Internal server error" });
@@ -462,33 +545,27 @@ export const getFollowingPosts = async (req, res) => {
 }
 
 export const getUserPosts = async (req, res) => {
-    try{
-        const {username} = req.params;
+    try {
+        const { username } = req.params;
         const user = await prisma.user.findUnique({
-            where: {username},
-            include: {
-                posts: {
-                    orderBy: {createdAt: "desc"},
-                    include: {
-                        comments: {
-                            include: {
-                                user: {
-                                    omit: {password: true}
-                                }
-                            }
-                        },
-                        likes: true,
-                        reposts: true
-                    }
-                }
-            }
-        })
-        if(!user) return res.status(404).json({error: "User not found"});
-        return res.status(200).json(user.posts);
+            where: { username },
+            select: { id: true }
+        });
 
-    } catch(error){
+        if (!user) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
+        const page = await getPostPage({
+            query: req.query,
+            userId: req.user.id,
+            where: { authorId: user.id }
+        });
+
+        return res.status(200).json(page);
+    } catch (error) {
         console.error("Error fetching user posts:", error);
-        res.status(500).json({error: "Internal server error"});
+        res.status(500).json({ error: "Internal server error" });
     }
 }
 
@@ -551,36 +628,38 @@ export const bookmarkUnbookmarkPost = async (req, res) => {
 export const getBookmarkedPosts = async (req, res) => {
     try {
         const userId = req.user.id;
+        const { cursor, limit } = getPaginationParams(req.query);
 
         const bookmarks = await prisma.bookmark.findMany({
             where: { userId },
-            orderBy: { createdAt: "desc" },
+            orderBy: [
+                { createdAt: "desc" },
+                { postId: "desc" }
+            ],
+            take: limit + 1,
+            ...(cursor && {
+                cursor: {
+                    postId_userId: {
+                        postId: cursor,
+                        userId
+                    }
+                },
+                skip: 1
+            }),
             include: {
                 post: {
-                    include: {
-                        author: {
-                            omit: { password: true }
-                        },
-                        comments: {
-                            include: {
-                                user: {
-                                    omit: { password: true }
-                                }
-                            }
-                        },
-                        likes: true,
-                        reposts: true
-                    }
+                    include: getPostInclude(userId)
                 }
             }
         });
+        const page = createCursorPage(bookmarks, limit, ({ postId }) => postId);
 
-        const posts = bookmarks.map(({ post }) => ({
-            ...post,
-            isBookmarked: true
-        }));
+        const posts = page.items.map(({ post }) => serializePost(post));
 
-        return res.status(200).json(posts);
+        return res.status(200).json({
+            posts,
+            nextCursor: page.nextCursor
+        });
     } catch (error) {
         console.error("Error fetching bookmarked posts:", error);
         return res.status(500).json({ error: "Internal server error" });

@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 
 import Post from "./Post";
 import PostSkeleton from "../skeletons/PostSkeleton";
@@ -14,21 +14,27 @@ const Posts = ({ feedType = "forYou", username, profileUser }) => {
 	}[feedType];
 
 	const {
-		data: posts = [],
+		data,
 		isLoading,
-		isFetching,
 		isError,
 		error,
-	} = useQuery({
-		queryKey: feedType === "bookmarks" ? ["bookmarkedPosts"] : ["posts", feedType, username],
-		queryFn: async () => {
-			const data = await apiRequest(endpoint);
-			return Array.isArray(data) ? data : [];
+		fetchNextPage,
+		hasNextPage,
+		isFetchingNextPage,
+	} = useInfiniteQuery({
+		queryKey: ["posts", feedType, username || null],
+		queryFn: ({ pageParam }) => {
+			const params = new URLSearchParams({ limit: "10" });
+			if (pageParam) params.set("cursor", pageParam);
+			return apiRequest(`${endpoint}?${params.toString()}`);
 		},
+		initialPageParam: null,
+		getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
 		enabled: Boolean(endpoint),
 	});
+	const posts = data?.pages.flatMap((page) => page.posts) || [];
 
-	if (isLoading || (isFetching && posts.length === 0)) {
+	if (isLoading) {
 		return (
 			<div className='flex flex-col'>
 				<PostSkeleton />
@@ -59,6 +65,18 @@ const Posts = ({ feedType = "forYou", username, profileUser }) => {
 					post={{ ...post, author: post.author || post.user || profileUser }}
 				/>
 			))}
+			{hasNextPage && (
+				<div className='flex justify-center border-b border-gray-800 p-4'>
+					<button
+						type='button'
+						className='btn btn-ghost btn-sm rounded-full text-primary'
+						onClick={() => fetchNextPage()}
+						disabled={isFetchingNextPage}
+					>
+						{isFetchingNextPage ? "Loading..." : "Load more posts"}
+					</button>
+				</div>
+			)}
 		</div>
 	);
 };

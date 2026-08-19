@@ -11,7 +11,11 @@ const useFollow = () => {
 		onSuccess: (data, userId) => {
 			queryClient.setQueriesData({ queryKey: ["userProfile"] }, (profile) => (
 				profile?.id === userId
-					? { ...profile, isFollowing: data.isFollowing }
+					? {
+						...profile,
+						isFollowing: data.isFollowing,
+						followersCount: data.followersCount,
+					}
 					: profile
 			));
 			queryClient.invalidateQueries({ queryKey: ["suggestedUsers"] });

@@ -158,9 +158,9 @@ const ProfilePage = () => {
 								{formatMemberSinceDate(user.createdAt)}
 							</span>
 						</div>
-						<div className='flex gap-4 text-xs text-slate-500' title='Follower totals are not included by the current profile API'>
-							<span><strong className='text-white'>—</strong> Following</span>
-							<span><strong className='text-white'>—</strong> Followers</span>
+						<div className='flex gap-4 text-xs text-slate-500'>
+							<span><strong className='text-white'>{(user.followingCount || 0).toLocaleString()}</strong> Following</span>
+							<span><strong className='text-white'>{(user.followersCount || 0).toLocaleString()}</strong> Followers</span>
 						</div>
 					</section>
 
