@@ -23,6 +23,10 @@ export const updatePostCaches = (queryClient, postId, updater) => {
 		{ queryKey: ["posts"] },
 		(cachedData) => updatePostCollection(cachedData, postId, updater),
 	);
+	queryClient.setQueriesData(
+		{ queryKey: ["search", "posts"] },
+		(cachedData) => updatePostCollection(cachedData, postId, updater),
+	);
 	queryClient.setQueryData(["post", postId], (cachedPost) => (
 		cachedPost ? updater(cachedPost) : cachedPost
 	));

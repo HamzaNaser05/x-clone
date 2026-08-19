@@ -8,6 +8,7 @@ import LoginPage from "./pages/auth/login/LoginPage";
 import NotificationPage from "./pages/notification/NotificationPage";
 import PostPage from "./pages/post/PostPage";
 import ProfilePage from "./pages/profile/ProfilePage";
+import SearchPage from "./pages/search/SearchPage";
 import SignUpPage from "./pages/auth/signup/SignUpPage";
 import LoadingSpinner from "./components/common/LoadingSpinner";
 import RightPanel from "./components/common/RightPanel";
@@ -70,6 +71,7 @@ function App() {
 					path='/bookmarks'
 					element={authUser ? <BookmarksPage /> : <Navigate to='/login' replace />}
 				/>
+				<Route path='/search' element={authUser ? <SearchPage /> : <Navigate to='/login' replace />} />
 				<Route
 					path='/profile/:username'
 					element={authUser ? <ProfilePage /> : <Navigate to='/login' replace />}

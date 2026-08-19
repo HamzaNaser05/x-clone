@@ -38,6 +38,7 @@ const Post = ({ post }) => {
 			text: updatedPost.text,
 			updatedAt: updatedPost.updatedAt,
 		}));
+		queryClient.invalidateQueries({ queryKey: ["search", "posts"] });
 	};
 
 	const { mutate: deletePost, isPending: isDeleting } = useMutation({
@@ -46,6 +47,7 @@ const Post = ({ post }) => {
 			deleteDialogRef.current?.close();
 			toast.success("Post deleted successfully");
 			queryClient.invalidateQueries({ queryKey: ["posts"] });
+			queryClient.invalidateQueries({ queryKey: ["search", "posts"] });
 			queryClient.removeQueries({ queryKey: ["post", post.id] });
 		},
 		onError: (error) => toast.error(error.message),

@@ -22,6 +22,7 @@ const useFollow = () => {
 			queryClient.invalidateQueries({ queryKey: ["authUser"] });
 			queryClient.invalidateQueries({ queryKey: ["posts", "following"] });
 			queryClient.invalidateQueries({ queryKey: ["userProfile"] });
+			queryClient.invalidateQueries({ queryKey: ["search", "users"] });
 		},
 		onError: (error) => toast.error(error.message),
 	});
