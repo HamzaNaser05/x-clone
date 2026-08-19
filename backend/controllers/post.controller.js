@@ -2,6 +2,7 @@ import prisma from "../db/prisma.js";
 import { deleteImage, uploadImage } from "../services/cloudinary.service.js";
 import { publishNotification } from "../services/notificationStream.service.js";
 import { getPostInclude, serializePost } from "../services/postQuery.service.js";
+import { getProfileFeedPage } from "../services/profileFeed.service.js";
 import { createCursorPage, getPaginationParams } from "../utils/pagination.js";
 
 const getCommentInclude = () => ({
@@ -579,22 +580,29 @@ export const getUserPosts = async (req, res) => {
         const { username } = req.params;
         const user = await prisma.user.findUnique({
             where: { username },
-            select: { id: true }
+            select: {
+                id: true,
+                username: true,
+                fullName: true
+            }
         });
 
         if (!user) {
             return res.status(404).json({ error: "User not found" });
         }
 
-        const page = await getPostPage({
+        const page = await getProfileFeedPage({
+            profileUser: user,
+            viewerId: req.user.id,
             query: req.query,
-            userId: req.user.id,
-            where: { authorId: user.id }
         });
 
         return res.status(200).json(page);
     } catch (error) {
         console.error("Error fetching user posts:", error);
+        if (error.statusCode === 400) {
+            return res.status(400).json({ error: error.message });
+        }
         res.status(500).json({ error: "Internal server error" });
     }
 }

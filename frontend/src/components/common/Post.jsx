@@ -80,6 +80,7 @@ const Post = ({ post }) => {
 		mutationFn: () => apiRequest(`/api/posts/repost/${post.id}`, { method: "POST" }),
 		onSuccess: (updatedReposts) => {
 			updatePostInCaches((cachedPost) => ({ ...cachedPost, reposts: updatedReposts }));
+			queryClient.invalidateQueries({ queryKey: ["posts", "posts"] });
 			const reposted = updatedReposts.includes(authUser?.id);
 			toast.success(reposted ? "Post reposted" : "Repost removed");
 		},
@@ -94,6 +95,12 @@ const Post = ({ post }) => {
 			</Link>
 		</div>
 		<div className='min-w-0 flex-1'>
+			{post.repostedBy && (
+				<div className='mb-1 flex items-center gap-1 text-xs font-semibold text-slate-500'>
+					<BiRepost className='h-4 w-4' />
+					{post.repostedBy.fullName || `@${post.repostedBy.username}`} reposted
+				</div>
+			)}
 			<div className='flex items-center gap-2'>
 				<Link to={`/profile/${postOwner.username}`} className='truncate font-bold hover:underline'>
 					{postOwner.fullName || postOwner.username || "User"}
