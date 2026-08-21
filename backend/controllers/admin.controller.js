@@ -32,14 +32,14 @@ const hasValidId = (req, res) => {
 
 export const getAdminStats = async (_req, res) => {
     try {
-        const [users, posts, comments, notifications] = await Promise.all([
+        const [users, posts, comments, reposts] = await Promise.all([
             prisma.user.count(),
             prisma.post.count(),
             prisma.comment.count(),
-            prisma.notification.count(),
+            prisma.repost.count(),
         ]);
 
-        return res.status(200).json({ users, posts, comments, notifications });
+        return res.status(200).json({ users, posts, comments, reposts });
     } catch (error) {
         console.error("Error fetching admin statistics:", error);
         return res.status(500).json({ error: "Unable to load dashboard statistics" });

@@ -383,7 +383,7 @@ These endpoints require an authenticated user with the `ADMIN` role.
 
 | Method | Endpoint | Query | Description |
 | --- | --- | --- | --- |
-| `GET` | `/api/admin/stats` | — | Get user, post, comment, and notification totals |
+| `GET` | `/api/admin/stats` | — | Get user, post, comment, and repost totals |
 | `GET` | `/api/admin/users` | `q`, `cursor`, `limit` | Search and review users |
 | `GET` | `/api/admin/posts` | `q`, `cursor`, `limit` | Search posts and author information |
 | `GET` | `/api/admin/comments` | `q`, `cursor`, `limit` | Search comments and replies |

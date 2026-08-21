@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { FaComment, FaRegHeart, FaRetweet, FaTrash, FaUsers } from "react-icons/fa";
-import { IoClose, IoNotifications, IoSearchOutline } from "react-icons/io5";
-import { MdAdminPanelSettings, MdArticle, MdOutlineForum } from "react-icons/md";
+import { IoSearchOutline } from "react-icons/io5";
+import { MdAdminPanelSettings, MdArticle, MdDashboard, MdOutlineForum } from "react-icons/md";
 import { Link, useSearchParams } from "react-router-dom";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
@@ -12,10 +12,10 @@ import { apiRequest } from "../../lib/api";
 import { formatMemberSinceDate, formatPostDate } from "../../utils/date";
 
 const tabs = [
-	["overview", "Overview"],
-	["users", "Users"],
-	["posts", "Posts"],
-	["comments", "Comments"],
+	["overview", "Overview", MdDashboard],
+	["users", "Users", FaUsers],
+	["posts", "Posts", MdArticle],
+	["comments", "Comments", FaComment],
 ];
 
 const AdminSearch = ({ query, resource, onSearch }) => {
@@ -51,7 +51,6 @@ const AdminSearch = ({ query, resource, onSearch }) => {
 					onClick={clear}
 					aria-label='Clear admin search'
 				>
-					<IoClose className='h-4 w-4' />
 				</button>
 			)}
 			<button type='submit' className='btn btn-primary btn-sm absolute right-6 top-1/2 -translate-y-1/2 rounded-full text-white'>
@@ -74,7 +73,7 @@ const AdminOverview = () => {
 		["Users", stats.users, FaUsers, "text-blue-400", "bg-blue-500/10"],
 		["Posts", stats.posts, MdArticle, "text-emerald-400", "bg-emerald-500/10"],
 		["Comments", stats.comments, FaComment, "text-amber-400", "bg-amber-500/10"],
-		["Notifications", stats.notifications, IoNotifications, "text-fuchsia-400", "bg-fuchsia-500/10"],
+		["Reposts", stats.reposts, FaRetweet, "text-fuchsia-400", "bg-fuchsia-500/10"],
 	];
 
 	return (
@@ -334,14 +333,17 @@ const AdminPage = () => {
 				</div>
 			</header>
 			<nav className='flex overflow-x-auto border-b border-gray-800' aria-label='Admin sections'>
-				{tabs.map(([tab, label]) => (
+				{tabs.map(([tab, label, Icon]) => (
 					<button
 						type='button'
 						className='relative min-w-24 flex-1 px-4 py-3 text-sm font-medium transition hover:bg-secondary'
 						onClick={() => selectTab(tab)}
 						key={tab}
 					>
-						<span className={activeTab === tab ? "text-white" : "text-slate-500"}>{label}</span>
+						<span className={`inline-flex items-center justify-center gap-2 ${activeTab === tab ? "text-white" : "text-slate-500"}`}>
+							<Icon className='h-4 w-4 shrink-0' aria-hidden='true' />
+							{label}
+						</span>
 						{activeTab === tab && <span className='absolute bottom-0 left-1/2 h-1 w-12 -translate-x-1/2 rounded-full bg-primary' />}
 					</button>
 				))}

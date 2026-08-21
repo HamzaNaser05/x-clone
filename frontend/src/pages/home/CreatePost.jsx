@@ -89,7 +89,7 @@ const CreatePost = () => {
 			)}
 			<div className='flex items-center justify-between border-t border-gray-800 py-2'>
 				<div className='flex items-center gap-2 text-primary'>
-					<button type='button' onClick={() => imgRef.current?.click()} aria-label='Add image'>
+					<button type='button' onClick={() => imgRef.current?.click()} aria-label='Add image' className="cursor-pointer">
 						<CiImageOn className='h-6 w-6' />
 					</button>
 				</div>
