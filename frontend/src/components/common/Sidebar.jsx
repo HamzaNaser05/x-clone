@@ -1,7 +1,7 @@
 import { BiLogOut } from "react-icons/bi";
 import { FaBookmark, FaUser } from "react-icons/fa";
 import { IoNotifications, IoSearchOutline } from "react-icons/io5";
-import { MdHomeFilled } from "react-icons/md";
+import { MdAdminPanelSettings, MdHomeFilled } from "react-icons/md";
 import { NavLink } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
@@ -39,6 +39,9 @@ const Sidebar = () => {
 		{ to: "/notifications", label: "Notifications", icon: IoNotifications },
 		{ to: "/bookmarks", label: "Bookmarks", icon: FaBookmark },
 		{ to: `/profile/${authUser?.username}`, label: "Profile", icon: FaUser },
+		...(authUser?.role === "ADMIN"
+			? [{ to: "/admin", label: "Admin", icon: MdAdminPanelSettings }]
+			: []),
 	];
 
 	return (

@@ -10,6 +10,7 @@ import CommentsDialog from "./CommentsDialog";
 import EditPostDialog from "./EditPostDialog";
 import ImagePreviewModal from "./ImagePreviewModal";
 import LoadingSpinner from "./LoadingSpinner";
+import AdminBadge from "./AdminBadge";
 import { apiRequest } from "../../lib/api";
 import { updatePostCaches } from "../../lib/postCache";
 import { formatPostDate, wasEdited } from "../../utils/date";
@@ -109,6 +110,7 @@ const Post = ({ post }) => {
 				<Link to={`/profile/${postOwner.username}`} className='truncate font-bold hover:underline'>
 					{postOwner.fullName || postOwner.username || "User"}
 				</Link>
+				{postOwner.role === "ADMIN" && <AdminBadge />}
 				<span className='flex min-w-0 gap-1 text-sm text-slate-500'>
 					<span className='truncate'>@{postOwner.username || "user"}</span>
 					<span>·</span>

@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 
 import useFollow from "../../hooks/useFollow";
 import LoadingSpinner from "./LoadingSpinner";
+import AdminBadge from "./AdminBadge";
 
 const UserSearchResult = ({ user, authUserId }) => {
 	const { follow, isPending, pendingUserId } = useFollow();
@@ -17,7 +18,10 @@ const UserSearchResult = ({ user, authUserId }) => {
 			<div className='min-w-0 flex-1'>
 				<div className='flex items-start justify-between gap-3'>
 					<Link to={`/profile/${user.username}`} className='min-w-0'>
-						<p className='truncate font-bold hover:underline'>{user.fullName}</p>
+						<p className='flex items-center gap-1 truncate font-bold hover:underline'>
+							<span className='truncate'>{user.fullName}</span>
+							{user.role === "ADMIN" && <AdminBadge />}
+						</p>
 						<p className='truncate text-sm text-slate-500'>@{user.username}</p>
 					</Link>
 					{!isCurrentUser && (

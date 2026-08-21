@@ -6,6 +6,7 @@ A full-stack social media application inspired by X/Twitter. Users can publish p
 
 - Account registration and login with an HTTP-only JWT cookie
 - API rate limiting with stricter protection for failed authentication attempts
+- Role-based admin dashboard for statistics, user review, and content moderation
 - For You and Following feeds
 - Text and Cloudinary-hosted image posts
 - Full-screen previews for post, profile, and cover images
@@ -259,7 +260,7 @@ twitter-clone/
 
 | Model | Purpose |
 | --- | --- |
-| `User` | Account, profile, and image information |
+| `User` | Account, profile, image information, and `USER`/`ADMIN` role |
 | `Post` | Text/image content and author ownership |
 | `Comment` | Top-level comments and one-level replies through `parentId` |
 | `Follow` | Follower/following relationships |
@@ -280,6 +281,16 @@ Successful signup or login creates a cookie named `jwt`:
 - Secure outside development mode
 
 All application endpoints except signup, login, logout, and the health check use the authentication middleware. Frontend API requests include credentials automatically.
+
+New accounts always receive the `USER` role. There is intentionally no public endpoint for granting administrator access. After applying the migrations, promote a trusted account through the Neon SQL Editor or another PostgreSQL client:
+
+```sql
+UPDATE users
+SET role = 'ADMIN'
+WHERE email = 'your-email@example.com';
+```
+
+Log out and back in, or refresh the application, after changing the role. Admin APIs enforce the role on the server; hiding the dashboard link in the frontend is only a user-interface convenience.
 
 ## API reference
 
@@ -365,6 +376,21 @@ Search is case-insensitive. `q` must contain between 2 and 100 characters. User 
 | `DELETE` | `/api/notifications/:id` | Delete one received notification |
 
 The server sends `notification` and `unread-count` SSE events. A heartbeat is written every 25 seconds, and the client reconnects automatically if the stream is interrupted.
+
+### Administration
+
+These endpoints require an authenticated user with the `ADMIN` role.
+
+| Method | Endpoint | Query | Description |
+| --- | --- | --- | --- |
+| `GET` | `/api/admin/stats` | — | Get user, post, comment, and notification totals |
+| `GET` | `/api/admin/users` | `q`, `cursor`, `limit` | Search and review users |
+| `GET` | `/api/admin/posts` | `q`, `cursor`, `limit` | Search posts and author information |
+| `GET` | `/api/admin/comments` | `q`, `cursor`, `limit` | Search comments and replies |
+| `DELETE` | `/api/admin/posts/:id` | — | Permanently remove any post |
+| `DELETE` | `/api/admin/comments/:id` | — | Permanently remove any comment or reply |
+
+The frontend dashboard is available at `/admin`. Content removals require confirmation and are intentionally limited to posts, comments, and replies; user deletion and role management are not exposed in the interface.
 
 ## Pagination
 

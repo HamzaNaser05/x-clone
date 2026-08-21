@@ -45,6 +45,7 @@ export const signup = async (req, res) => {
                 coverImg: true,
                 bio: true,
                 link: true,
+                role: true,
                 createdAt: true,
                 updatedAt: true,
 

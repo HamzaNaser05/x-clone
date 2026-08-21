@@ -11,6 +11,7 @@ import { v2 as cloudinary } from "cloudinary"
 import postRoutes from "./routes/post.routes.js"
 import notificationsRoutes from "./routes/notifications.routes.js"
 import searchRoutes from "./routes/search.routes.js"
+import adminRoutes from "./routes/admin.routes.js";
 import { apiRateLimiter, authRateLimiter } from "./middleware/rateLimit.js";
 import cors from "cors";
 
@@ -50,6 +51,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/notifications", notificationsRoutes)
 app.use("/api/search", searchRoutes)
+app.use("/api/admin", adminRoutes);
 
 app.get("/api/health", (req, res) => {
     res.status(200).json({ status: "ok" });

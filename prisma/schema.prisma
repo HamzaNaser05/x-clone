@@ -15,6 +15,11 @@ enum NotificationType {
   post
 }
 
+enum UserRole {
+  USER
+  ADMIN
+}
+
 model User {
   id         String   @id @default(uuid()) @db.Uuid
   username   String   @unique @db.VarChar(50)
@@ -25,6 +30,7 @@ model User {
   coverImg   String   @default("") @map("cover_img")
   bio        String   @default("")
   link       String   @default("")
+  role       UserRole @default(USER)
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
