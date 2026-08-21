@@ -7,6 +7,7 @@ import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
 import EditProfileModal from "./EditProfileModal";
+import ImagePreviewModal from "../../components/common/ImagePreviewModal";
 import Posts from "../../components/common/Posts";
 import ProfileHeaderSkeleton from "../../components/skeletons/ProfileHeaderSkeleton";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
@@ -18,6 +19,7 @@ import { formatMemberSinceDate } from "../../utils/date";
 const ProfilePage = () => {
 	const [coverImg, setCoverImg] = useState(null);
 	const [profileImg, setProfileImg] = useState(null);
+	const [previewImage, setPreviewImage] = useState(null);
 	const [feedType, setFeedType] = useState("posts");
 	const coverImgRef = useRef(null);
 	const profileImgRef = useRef(null);
@@ -61,6 +63,8 @@ const ProfilePage = () => {
 			? user.link
 			: `https://${user.link}`
 		: null;
+	const displayedCoverImage = coverImg || user?.coverImg || "/cover.png";
+	const displayedProfileImage = profileImg || user?.profileImg || "/avatar-placeholder.png";
 
 	return (
 		<main className='min-h-screen min-w-0 flex-[4_4_0] border-r border-gray-800'>
@@ -85,7 +89,14 @@ const ProfilePage = () => {
 					</header>
 
 					<div className='group/cover relative'>
-						<img src={coverImg || user.coverImg || "/cover.png"} className='h-48 w-full object-cover sm:h-52' alt='Profile cover' />
+						<button
+							type='button'
+							className='block w-full cursor-pointer'
+							onClick={() => setPreviewImage({ src: displayedCoverImage, alt: `${user.username}'s cover image` })}
+							aria-label='Open cover image'
+						>
+							<img src={displayedCoverImage} className='h-48 w-full object-cover sm:h-52' alt='Profile cover' />
+						</button>
 						{isMyProfile && (
 							<button
 								type='button'
@@ -101,7 +112,14 @@ const ProfilePage = () => {
 
 						<div className='avatar absolute -bottom-16 left-4'>
 							<div className='group/avatar relative w-32 rounded-full border-4 border-black bg-black'>
-								<img src={profileImg || user.profileImg || "/avatar-placeholder.png"} alt={`${user.username}'s avatar`} />
+								<button
+									type='button'
+									className='block h-full w-full cursor-pointer overflow-hidden rounded-full'
+									onClick={() => setPreviewImage({ src: displayedProfileImage, alt: `${user.username}'s profile image` })}
+									aria-label='Open profile image'
+								>
+									<img src={displayedProfileImage} alt={`${user.username}'s avatar`} />
+								</button>
 								{isMyProfile && (
 									<button
 										type='button'
@@ -177,6 +195,11 @@ const ProfilePage = () => {
 						)}
 					</div>
 					<Posts feedType={feedType} username={username} profileUser={user} />
+					<ImagePreviewModal
+						imageUrl={previewImage?.src}
+						alt={previewImage?.alt}
+						onClose={() => setPreviewImage(null)}
+					/>
 				</>
 			)}
 		</main>

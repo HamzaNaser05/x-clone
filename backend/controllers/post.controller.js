@@ -286,6 +286,48 @@ export const updateComment = async (req, res) => {
     }
 };
 
+export const deleteComment = async (req, res) => {
+    try {
+        const commentId = req.params.id;
+        const userId = req.user.id;
+        const comment = await prisma.comment.findUnique({
+            where: { id: commentId },
+            select: {
+                id: true,
+                userId: true,
+                parentId: true,
+                _count: {
+                    select: { replies: true }
+                }
+            }
+        });
+
+        if (!comment) {
+            return res.status(404).json({ error: "Comment not found" });
+        }
+
+        if (comment.userId !== userId) {
+            return res.status(403).json({ error: "You are not authorized to delete this comment" });
+        }
+
+        await prisma.comment.delete({
+            where: { id: commentId }
+        });
+
+        return res.status(200).json({
+            message: comment.parentId
+                ? "Reply deleted successfully"
+                : "Comment deleted successfully",
+            deletedCommentId: comment.id,
+            parentId: comment.parentId,
+            deletedCount: 1 + comment._count.replies
+        });
+    } catch (error) {
+        console.error("Error deleting comment:", error);
+        return res.status(500).json({ error: "Internal server error" });
+    }
+};
+
 export const getComments = async (req, res) => {
     try {
         const postId = req.params.id;

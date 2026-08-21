@@ -59,6 +59,21 @@ const CommentsDialog = ({ postId, commentCount, authUserId }) => {
 		});
 	};
 
+	const deleteCommentFromCache = (result) => {
+		queryClient.setQueryData(queryKey, (cachedData) => {
+			if (!cachedData?.pages) return cachedData;
+
+			return {
+				...cachedData,
+				pages: cachedData.pages.map((page) => ({
+					...page,
+					comments: page.comments.filter((comment) => comment.id !== result.deletedCommentId),
+				})),
+			};
+		});
+		changeCommentCount(-result.deletedCount);
+	};
+
 	const { mutate: createComment, isPending } = useMutation({
 		mutationFn: () => apiRequest(`/api/posts/comment/${postId}`, {
 			method: "POST",
@@ -121,6 +136,8 @@ const CommentsDialog = ({ postId, commentCount, authUserId }) => {
 								key={comment.id}
 								comment={comment}
 								authUserId={authUserId}
+								onDeleted={deleteCommentFromCache}
+								onReplyDeleted={(deletedCount) => changeCommentCount(-deletedCount)}
 								onUpdated={updateCommentInCache}
 								onReplyCreated={() => {
 									updateCommentInCache({ ...comment, replyCount: (comment.replyCount || 0) + 1 });

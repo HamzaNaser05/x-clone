@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { FaPen, FaReply } from "react-icons/fa";
+import { useRef, useState } from "react";
+import { FaPen, FaReply, FaTrash } from "react-icons/fa";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 
@@ -10,10 +10,13 @@ import { formatPostDate, wasEdited } from "../../utils/date";
 const CommentItem = ({
 	comment,
 	authUserId,
+	onDeleted,
+	onReplyDeleted,
 	onUpdated,
 	onReplyCreated,
 	isReply = false,
 }) => {
+	const deleteDialogRef = useRef(null);
 	const [isEditing, setIsEditing] = useState(false);
 	const [showReplyForm, setShowReplyForm] = useState(false);
 	const [showReplies, setShowReplies] = useState(false);
@@ -74,6 +77,18 @@ const CommentItem = ({
 		onError: (error) => toast.error(error.message),
 	});
 
+	const { mutate: deleteComment, isPending: isDeleting } = useMutation({
+		mutationFn: () => apiRequest(`/api/posts/comments/${comment.id}`, {
+			method: "DELETE",
+		}),
+		onSuccess: (result) => {
+			deleteDialogRef.current?.close();
+			onDeleted?.(result);
+			toast.success(result.message);
+		},
+		onError: (error) => toast.error(error.message),
+	});
+
 	const updateReplyInCache = (updatedReply) => {
 		queryClient.setQueryData(repliesQueryKey, (cachedData) => {
 			if (!cachedData?.pages) return cachedData;
@@ -88,6 +103,25 @@ const CommentItem = ({
 				})),
 			};
 		});
+	};
+
+	const removeReplyFromCache = (result) => {
+		queryClient.setQueryData(repliesQueryKey, (cachedData) => {
+			if (!cachedData?.pages) return cachedData;
+
+			return {
+				...cachedData,
+				pages: cachedData.pages.map((page) => ({
+					...page,
+					replies: page.replies.filter((reply) => reply.id !== result.deletedCommentId),
+				})),
+			};
+		});
+		onUpdated({
+			...comment,
+			replyCount: Math.max(0, replyCount - result.deletedCount),
+		});
+		onReplyDeleted?.(result.deletedCount);
 	};
 
 	const cancelEdit = () => {
@@ -129,14 +163,25 @@ const CommentItem = ({
 							)}
 						</p>
 						{isOwner && !isEditing && (
-							<button
-								type='button'
-								className='ml-auto shrink-0 rounded-full p-1.5 text-slate-500 hover:bg-primary/10 hover:text-primary'
-								onClick={() => setIsEditing(true)}
-								aria-label={isReply ? "Edit reply" : "Edit comment"}
-							>
-								<FaPen className='h-3 w-3' />
-							</button>
+							<div className='ml-auto flex shrink-0 items-center'>
+								<button
+									type='button'
+									className='rounded-full p-1.5 text-slate-500 hover:bg-primary/10 hover:text-primary'
+									onClick={() => setIsEditing(true)}
+									aria-label={isReply ? "Edit reply" : "Edit comment"}
+								>
+									<FaPen className='h-3 w-3' />
+								</button>
+								<button
+									type='button'
+									className='rounded-full p-1.5 text-slate-500 hover:bg-red-500/10 hover:text-red-500'
+									onClick={() => deleteDialogRef.current?.showModal()}
+									disabled={isDeleting}
+									aria-label={isReply ? "Delete reply" : "Delete comment"}
+								>
+									<FaTrash className='h-3 w-3' />
+								</button>
+							</div>
 						)}
 					</div>
 
@@ -212,6 +257,7 @@ const CommentItem = ({
 							key={reply.id}
 							comment={reply}
 							authUserId={authUserId}
+							onDeleted={removeReplyFromCache}
 							onUpdated={updateReplyInCache}
 							isReply
 						/>
@@ -227,6 +273,36 @@ const CommentItem = ({
 						</button>
 					)}
 				</div>
+			)}
+
+			{isOwner && (
+				<dialog ref={deleteDialogRef} className='modal' aria-labelledby={`delete-comment-title-${comment.id}`}>
+					<div className='modal-box max-w-sm rounded-2xl border border-gray-700 bg-black'>
+						<h2 id={`delete-comment-title-${comment.id}`} className='text-xl font-bold'>
+							Delete {isReply ? "reply" : "comment"}?
+						</h2>
+						<p className='mt-2 text-sm leading-6 text-slate-400'>
+							This cannot be undone.
+							{!isReply && replyCount > 0 && " Its replies will also be permanently removed."}
+						</p>
+						<div className='modal-action mt-6'>
+							<form method='dialog'>
+								<button className='btn btn-ghost rounded-full' disabled={isDeleting}>Cancel</button>
+							</form>
+							<button
+								type='button'
+								className='btn rounded-full border-0 bg-red-600 text-white hover:bg-red-700'
+								onClick={() => deleteComment()}
+								disabled={isDeleting}
+							>
+								{isDeleting ? <LoadingSpinner size='sm' /> : "Delete"}
+							</button>
+						</div>
+					</div>
+					<form method='dialog' className='modal-backdrop'>
+						<button disabled={isDeleting}>Close</button>
+					</form>
+				</dialog>
 			)}
 		</div>
 	);

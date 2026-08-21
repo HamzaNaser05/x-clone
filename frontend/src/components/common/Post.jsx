@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { BiRepost } from "react-icons/bi";
 import { FaRegHeart, FaTrash } from "react-icons/fa";
 import { FaBookmark, FaHeart, FaRegBookmark } from "react-icons/fa6";
@@ -8,6 +8,7 @@ import toast from "react-hot-toast";
 
 import CommentsDialog from "./CommentsDialog";
 import EditPostDialog from "./EditPostDialog";
+import ImagePreviewModal from "./ImagePreviewModal";
 import LoadingSpinner from "./LoadingSpinner";
 import { apiRequest } from "../../lib/api";
 import { updatePostCaches } from "../../lib/postCache";
@@ -17,6 +18,7 @@ const ownerId = (item) => (typeof item === "string" ? item : item?.userId || ite
 
 const Post = ({ post }) => {
 	const deleteDialogRef = useRef(null);
+	const [previewImage, setPreviewImage] = useState(null);
 	const queryClient = useQueryClient();
 	const { data: authUser } = useQuery({ queryKey: ["authUser"] });
 
@@ -131,7 +133,16 @@ const Post = ({ post }) => {
 
 			<div className='mt-1 flex flex-col gap-3 overflow-hidden'>
 				{post.text && <p className='whitespace-pre-wrap break-words'>{post.text}</p>}
-				{post.img && <img src={post.img} className='max-h-[32rem] w-full rounded-2xl border border-gray-800 object-contain' alt='' />}
+				{post.img && (
+					<button
+						type='button'
+						className='block w-full cursor-pointer overflow-hidden rounded-2xl border border-gray-800'
+						onClick={() => setPreviewImage(post.img)}
+						aria-label='Open post image'
+					>
+						<img src={post.img} className='max-h-[32rem] w-full object-contain' alt='Post attachment' />
+					</button>
+				)}
 			</div>
 
 			<div className='mt-3 flex items-center justify-between text-slate-500'>
@@ -202,6 +213,11 @@ const Post = ({ post }) => {
 						</form>
 					</dialog>
 				)}
+				<ImagePreviewModal
+					imageUrl={previewImage}
+					alt='Post attachment preview'
+					onClose={() => setPreviewImage(null)}
+				/>
 		</div>
 	</article>
 	);

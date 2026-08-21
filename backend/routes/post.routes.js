@@ -3,6 +3,7 @@ import {
     bookmarkUnbookmarkPost,
     commentOnPost,
     createPost,
+    deleteComment,
     deletePost,
     getAllPosts,
     getBookmarkedPosts,
@@ -38,6 +39,7 @@ router.post("/bookmark/:id", protectRoute, bookmarkUnbookmarkPost);
 router.post("/repost/:id", protectRoute, repostUnrepostPost);
 router.patch("/comments/:id", protectRoute, updateComment);
 router.patch("/:id", protectRoute, updatePost);
+router.delete("/comments/:id", protectRoute, deleteComment);
 router.delete("/:id", protectRoute, deletePost);
 
 

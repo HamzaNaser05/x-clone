@@ -6,6 +6,7 @@ import BookmarksPage from "./pages/bookmarks/BookmarksPage";
 import HomePage from "./pages/home/HomePage";
 import LoginPage from "./pages/auth/login/LoginPage";
 import NotificationPage from "./pages/notification/NotificationPage";
+import NotFoundPage from "./pages/not-found/NotFoundPage";
 import PostPage from "./pages/post/PostPage";
 import ProfilePage from "./pages/profile/ProfilePage";
 import SearchPage from "./pages/search/SearchPage";
@@ -77,7 +78,7 @@ function App() {
 					element={authUser ? <ProfilePage /> : <Navigate to='/login' replace />}
 				/>
 				<Route path='/post/:id' element={authUser ? <PostPage /> : <Navigate to='/login' replace />} />
-				<Route path='*' element={<Navigate to={authUser ? "/" : "/login"} replace />} />
+				<Route path='*' element={<NotFoundPage isAuthenticated={Boolean(authUser)} />} />
 			</Routes>
 			{authUser && <RightPanel />}
 			<Toaster position='top-center' toastOptions={{ duration: 3500 }} />

@@ -7,7 +7,8 @@ A full-stack social media application inspired by X/Twitter. Users can publish p
 - Account registration and login with an HTTP-only JWT cookie
 - For You and Following feeds
 - Text and Cloudinary-hosted image posts
-- Editable posts and comments
+- Full-screen previews for post, profile, and cover images
+- Editable and deletable owned posts, comments, and replies
 - Post deletion with a confirmation dialog
 - Likes, reposts, comments, and one-level reply threads
 - Private bookmarks
@@ -19,6 +20,7 @@ A full-stack social media application inspired by X/Twitter. Users can publish p
 - Notifications for follows, likes, comments, replies, reposts, and new posts from followed users
 - Live unread notification badges using Server-Sent Events (SSE)
 - Responsive dark interface built with Tailwind CSS and daisyUI
+- Custom 404 page for unknown routes
 
 ## Technology stack
 
@@ -336,6 +338,7 @@ A post must contain text or an image. Frontend post uploads are limited to 5 MB 
 | `GET` | `/api/posts/:id/comments` | `cursor`, `limit` | Get top-level comments for a post |
 | `POST` | `/api/posts/comment/:id` | `text` | Add a top-level comment |
 | `PATCH` | `/api/posts/comments/:id` | `text` | Edit an owned comment or reply |
+| `DELETE` | `/api/posts/comments/:id` | — | Delete an owned comment or reply |
 | `GET` | `/api/posts/comments/:id/replies` | `cursor`, `limit` | Get replies for a top-level comment |
 | `POST` | `/api/posts/comments/:id/replies` | `text` | Reply to a top-level comment |
 
