@@ -11,6 +11,7 @@ import ImagePreviewModal from "../../components/common/ImagePreviewModal";
 import Posts from "../../components/common/Posts";
 import ProfileHeaderSkeleton from "../../components/skeletons/ProfileHeaderSkeleton";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
+import AdminBadge from "../../components/common/AdminBadge";
 import useFollow from "../../hooks/useFollow";
 import useUpdateUserProfile from "../../hooks/useUpdateUserProfile";
 import { apiRequest } from "../../lib/api";
@@ -160,7 +161,10 @@ const ProfilePage = () => {
 
 					<section className='flex flex-col gap-4 px-4 pb-4'>
 						<div>
-							<h2 className='text-lg font-bold'>{user.fullName}</h2>
+							<div className='flex items-center gap-2'>
+								<h2 className='text-lg font-bold'>{user.fullName}</h2>
+								{user.role === "ADMIN" && <AdminBadge />}
+							</div>
 							<p className='text-sm text-slate-500'>@{user.username}</p>
 							{user.bio && <p className='mt-3 whitespace-pre-wrap text-sm'>{user.bio}</p>}
 						</div>

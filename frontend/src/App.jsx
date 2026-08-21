@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Toaster } from "react-hot-toast";
 
@@ -11,12 +11,15 @@ import PostPage from "./pages/post/PostPage";
 import ProfilePage from "./pages/profile/ProfilePage";
 import SearchPage from "./pages/search/SearchPage";
 import SignUpPage from "./pages/auth/signup/SignUpPage";
+import AdminPage from "./pages/admin/AdminPage";
+import AdminRoute from "./components/common/AdminRoute";
 import LoadingSpinner from "./components/common/LoadingSpinner";
 import RightPanel from "./components/common/RightPanel";
 import Sidebar from "./components/common/Sidebar";
 import { apiRequest } from "./lib/api";
 
 function App() {
+	const location = useLocation();
 	const {
 		data: authUser,
 		isLoading,
@@ -78,9 +81,13 @@ function App() {
 					element={authUser ? <ProfilePage /> : <Navigate to='/login' replace />}
 				/>
 				<Route path='/post/:id' element={authUser ? <PostPage /> : <Navigate to='/login' replace />} />
+				<Route
+					path='/admin'
+					element={authUser ? <AdminRoute authUser={authUser}><AdminPage /></AdminRoute> : <Navigate to='/login' replace />}
+				/>
 				<Route path='*' element={<NotFoundPage isAuthenticated={Boolean(authUser)} />} />
 			</Routes>
-			{authUser && <RightPanel />}
+			{authUser && !location.pathname.startsWith("/admin") && <RightPanel />}
 			<Toaster position='top-center' toastOptions={{ duration: 3500 }} />
 		</div>
 	);

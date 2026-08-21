@@ -4,6 +4,7 @@ import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-q
 import toast from "react-hot-toast";
 
 import LoadingSpinner from "./LoadingSpinner";
+import AdminBadge from "./AdminBadge";
 import { apiRequest } from "../../lib/api";
 import { formatPostDate, wasEdited } from "../../utils/date";
 
@@ -153,6 +154,7 @@ const CommentItem = ({
 					<div className='flex items-start gap-2'>
 						<p className='flex min-w-0 flex-wrap items-center gap-1 text-sm'>
 							<span className='font-bold'>{comment.user?.fullName}</span>
+							{comment.user?.role === "ADMIN" && <AdminBadge />}
 							<span className='text-slate-500'>@{comment.user?.username}</span>
 							<span className='text-slate-500' aria-hidden='true'>·</span>
 							<time className='text-slate-500' dateTime={comment.createdAt}>
