@@ -1,5 +1,4 @@
 import { useRef, useState } from "react";
-import { BsEmojiSmileFill } from "react-icons/bs";
 import { CiImageOn } from "react-icons/ci";
 import { IoCloseSharp } from "react-icons/io5";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -93,7 +92,6 @@ const CreatePost = () => {
 					<button type='button' onClick={() => imgRef.current?.click()} aria-label='Add image'>
 						<CiImageOn className='h-6 w-6' />
 					</button>
-					<BsEmojiSmileFill className='h-5 w-5' aria-hidden='true' />
 				</div>
 				<input type='file' accept='image/*' hidden ref={imgRef} onChange={handleImageChange} />
 				<button
