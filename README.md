@@ -5,6 +5,7 @@ A full-stack social media application inspired by X/Twitter. Users can publish p
 ## Features
 
 - Account registration and login with an HTTP-only JWT cookie
+- API rate limiting with stricter protection for failed authentication attempts
 - For You and Following feeds
 - Text and Cloudinary-hosted image posts
 - Full-screen previews for post, profile, and cover images

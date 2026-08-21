@@ -11,6 +11,7 @@ import { v2 as cloudinary } from "cloudinary"
 import postRoutes from "./routes/post.routes.js"
 import notificationsRoutes from "./routes/notifications.routes.js"
 import searchRoutes from "./routes/search.routes.js"
+import { apiRateLimiter, authRateLimiter } from "./middleware/rateLimit.js";
 import cors from "cors";
 
 dotenv.config();
@@ -26,6 +27,10 @@ const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 const frontendDirectory = path.resolve(currentDirectory, "../frontend/dist");
 const frontendEntryPoint = path.join(frontendDirectory, "index.html");
 
+if (process.env.NODE_ENV === "production") {
+    app.set("trust proxy", 1);
+}
+
 app.use(express.json({ limit: "8mb" }))
 app.use(express.urlencoded({ extended: true, limit: "8mb" }))
 app.use(cookieParser())
@@ -35,6 +40,10 @@ app.use(
         credentials: true,
     })
 );
+
+app.use("/api/auth/login", authRateLimiter);
+app.use("/api/auth/signup", authRateLimiter);
+app.use("/api", apiRateLimiter);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
