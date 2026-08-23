@@ -48,7 +48,7 @@ export const searchUsers = async (req, res) => {
                 cursor: { id: cursor },
                 skip: 1
             }),
-            omit: { password: true },
+            omit: { password: true, tokenVersion: true },
             include: {
                 followers: {
                     where: { followerId: req.user.id },

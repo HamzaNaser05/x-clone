@@ -11,6 +11,8 @@ import PostPage from "./pages/post/PostPage";
 import ProfilePage from "./pages/profile/ProfilePage";
 import SearchPage from "./pages/search/SearchPage";
 import SignUpPage from "./pages/auth/signup/SignUpPage";
+import ForgotPasswordPage from "./pages/auth/forgot-password/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/auth/reset-password/ResetPasswordPage";
 import AdminPage from "./pages/admin/AdminPage";
 import AdminRoute from "./components/common/AdminRoute";
 import LoadingSpinner from "./components/common/LoadingSpinner";
@@ -20,6 +22,8 @@ import { apiRequest } from "./lib/api";
 
 function App() {
 	const location = useLocation();
+	const isPasswordRecoveryPage = location.pathname === "/forgot-password"
+		|| location.pathname.startsWith("/reset-password/");
 	const {
 		data: authUser,
 		isLoading,
@@ -62,11 +66,13 @@ function App() {
 
 	return (
 		<div className='mx-auto flex min-h-screen max-w-6xl'>
-			{authUser && <Sidebar />}
+			{authUser && !isPasswordRecoveryPage && <Sidebar />}
 			<Routes>
 				<Route path='/' element={authUser ? <HomePage /> : <Navigate to='/login' replace />} />
 				<Route path='/login' element={!authUser ? <LoginPage /> : <Navigate to='/' replace />} />
 				<Route path='/signup' element={!authUser ? <SignUpPage /> : <Navigate to='/' replace />} />
+				<Route path='/forgot-password' element={<ForgotPasswordPage />} />
+				<Route path='/reset-password/:token' element={<ResetPasswordPage />} />
 				<Route
 					path='/notifications'
 					element={authUser ? <NotificationPage /> : <Navigate to='/login' replace />}
@@ -87,7 +93,7 @@ function App() {
 				/>
 				<Route path='*' element={<NotFoundPage isAuthenticated={Boolean(authUser)} />} />
 			</Routes>
-			{authUser && !location.pathname.startsWith("/admin") && <RightPanel />}
+			{authUser && !isPasswordRecoveryPage && !location.pathname.startsWith("/admin") && <RightPanel />}
 			<Toaster position='top-center' toastOptions={{ duration: 3500 }} />
 		</div>
 	);

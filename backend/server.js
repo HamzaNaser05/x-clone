@@ -12,7 +12,12 @@ import postRoutes from "./routes/post.routes.js"
 import notificationsRoutes from "./routes/notifications.routes.js"
 import searchRoutes from "./routes/search.routes.js"
 import adminRoutes from "./routes/admin.routes.js";
-import { apiRateLimiter, authRateLimiter } from "./middleware/rateLimit.js";
+import {
+    apiRateLimiter,
+    authRateLimiter,
+    passwordResetAttemptRateLimiter,
+    passwordResetRequestRateLimiter,
+} from "./middleware/rateLimit.js";
 import cors from "cors";
 
 dotenv.config();
@@ -44,6 +49,8 @@ app.use(
 
 app.use("/api/auth/login", authRateLimiter);
 app.use("/api/auth/signup", authRateLimiter);
+app.use("/api/auth/forgot-password", passwordResetRequestRateLimiter);
+app.use("/api/auth/reset-password", passwordResetAttemptRateLimiter);
 app.use("/api", apiRateLimiter);
 
 app.use("/api/auth", authRoutes);

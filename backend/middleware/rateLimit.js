@@ -23,3 +23,21 @@ export const authRateLimiter = rateLimit({
         error: "Too many unsuccessful attempts. Please wait 15 minutes and try again.",
     },
 });
+
+export const passwordResetRequestRateLimiter = rateLimit({
+    ...commonOptions,
+    windowMs: 60 * 60 * 1000,
+    limit: 5,
+    message: {
+        error: "Too many password reset requests. Please try again in an hour.",
+    },
+});
+
+export const passwordResetAttemptRateLimiter = rateLimit({
+    ...commonOptions,
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+    message: {
+        error: "Too many password reset attempts. Please wait 15 minutes and try again.",
+    },
+});

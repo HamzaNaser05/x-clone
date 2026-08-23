@@ -2,6 +2,7 @@ import prisma from "../db/prisma.js";
 import bcrypt from "bcryptjs";
 import { deleteImage, uploadImage } from "../services/cloudinary.service.js";
 import { publishNotification } from "../services/notificationStream.service.js";
+import { generateTokenAndSetCookie } from "../lib/utils/generateToken.js";
 
 export const getUserProfile = async (req, res) => {
     const { username } = req.params;
@@ -9,7 +10,7 @@ export const getUserProfile = async (req, res) => {
     try {
         const user = await prisma.user.findUnique({
             where: { username },
-            omit: { password: true },
+            omit: { password: true, tokenVersion: true },
             include: {
                 followers: {
                     where: { followerId: req.user.id },
@@ -143,7 +144,8 @@ export const getSuggestedUsers = async (req, res) => {
                 }
             },
             omit: {
-                password: true
+                password: true,
+                tokenVersion: true,
             },
             take: 10
 
@@ -162,6 +164,7 @@ export const updateUser = async (req, res) => {
     let { profileImg, coverImg } = req.body;
 
     const userId = req.user.id;
+    const passwordChanged = Boolean(currentPassword && newPassword);
 
     try {
         const user = await prisma.user.findUnique({
@@ -179,6 +182,9 @@ export const updateUser = async (req, res) => {
             if (!isMatch) return res.status(400).json({ error: "Current password is incorrect" })
             if (newPassword.length < 6) {
                 return res.status(400).json({ error: "Password must be at least 6 characters long" })
+            }
+            if (Buffer.byteLength(newPassword, "utf8") > 72) {
+                return res.status(400).json({ error: "Password cannot exceed 72 bytes" })
             }
             const salt = await bcrypt.genSalt(10)
             user.password = await bcrypt.hash(newPassword, salt)
@@ -203,7 +209,7 @@ export const updateUser = async (req, res) => {
         user.coverImg = coverImg || user.coverImg;
 
 
-        const updateUser = await prisma.user.update({
+        const updateQuery = prisma.user.update({
             where: {
                 id: userId
             },
@@ -215,12 +221,29 @@ export const updateUser = async (req, res) => {
                 bio: user.bio,
                 link: user.link,
                 profileImg: user.profileImg,
-                coverImg: user.coverImg
+                coverImg: user.coverImg,
+                ...(passwordChanged && { tokenVersion: { increment: 1 } }),
             },
             omit: {
-                password: true
+                password: true,
+                tokenVersion: true,
             }
-        })
+        });
+        const [updateUser] = passwordChanged
+            ? await prisma.$transaction([
+                updateQuery,
+                prisma.passwordResetToken.deleteMany({ where: { userId } }),
+            ])
+            : [await updateQuery];
+
+        if (passwordChanged) {
+            generateTokenAndSetCookie({
+                userId,
+                tokenVersion: user.tokenVersion + 1,
+                res,
+            });
+        }
+
         return res.status(200).json(updateUser)
 
     } catch (error) {

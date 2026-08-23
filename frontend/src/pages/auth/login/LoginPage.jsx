@@ -58,6 +58,7 @@ const LoginPage = () => {
 							value={formData.password}
 						/>
 					</label>
+					<Link to='/forgot-password' className='self-end text-sm text-primary hover:underline'>Forgot password?</Link>
 					<button className='btn btn-primary rounded-full text-white' disabled={isPending}>
 						{isPending ? <LoadingSpinner size='sm' /> : "Log in"}
 					</button>

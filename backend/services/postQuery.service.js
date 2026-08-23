@@ -1,6 +1,6 @@
 export const getPostInclude = (userId) => ({
     author: {
-        omit: { password: true }
+        omit: { password: true, tokenVersion: true }
     },
     likes: true,
     reposts: true,

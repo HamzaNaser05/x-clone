@@ -5,6 +5,7 @@ A full-stack social media application inspired by X/Twitter. Users can publish p
 ## Features
 
 - Account registration and login with an HTTP-only JWT cookie
+- One-time password recovery links delivered through Gmail
 - API rate limiting with stricter protection for failed authentication attempts
 - Role-based admin dashboard for statistics, user review, and content moderation
 - For You and Following feeds
@@ -268,6 +269,7 @@ twitter-clone/
 | `Repost` | Unique user/post reposts with activity timestamps |
 | `Bookmark` | Private saved posts |
 | `Notification` | Follow and post-related notification events |
+| `PasswordResetToken` | Hashed, expiring, one-time account recovery tokens |
 
 Deleting a user or post cascades through its related records. Notification types are `follow`, `like`, `comment`, `reply`, `repost`, and `post`.
 
@@ -279,6 +281,8 @@ Successful signup or login creates a cookie named `jwt`:
 - `SameSite=Strict` for CSRF protection
 - Valid for 15 days
 - Secure outside development mode
+
+Resetting or changing a password increments the account's token version, invalidating previously issued JWT cookies. Reset links expire after 15 minutes, are stored only as SHA-256 hashes, and can be used once.
 
 All application endpoints except signup, login, logout, and the health check use the authentication middleware. Frontend API requests include credentials automatically.
 
@@ -308,6 +312,8 @@ The base API URL is `/api`. Unless stated otherwise, endpoints require the `jwt`
 | --- | --- | --- | --- |
 | `POST` | `/api/auth/signup` | `fullName`, `username`, `email`, `password` | Create an account and authenticate |
 | `POST` | `/api/auth/login` | `username`, `password` | Authenticate an existing account |
+| `POST` | `/api/auth/forgot-password` | `email` | Request a one-time password reset email |
+| `POST` | `/api/auth/reset-password/:token` | `password`, `confirmPassword` | Replace the password using a valid reset token |
 | `POST` | `/api/auth/logout` | — | Clear the authentication cookie |
 | `GET` | `/api/auth/me` | — | Return the authenticated user |
 
@@ -435,6 +441,7 @@ For production, consider direct signed browser uploads to Cloudinary to avoid se
 - Disable proxy buffering for `/api/notifications/stream`.
 - Apply migrations with `npx prisma migrate deploy` during deployment.
 - Keep Cloudinary and database credentials in the deployment platform’s secret manager.
+- Configure `GMAIL_USER`, `GMAIL_APP_PASSWORD`, and `EMAIL_FROM_NAME` as deployment secrets for password recovery.
 
 ## Troubleshooting
 
@@ -480,6 +487,10 @@ npm run db:status
 ### Image upload fails
 
 Verify all three Cloudinary variables. Post images must be valid image data URLs and no larger than 5 MB in the frontend.
+
+### Password reset email fails
+
+Confirm that Gmail 2-Step Verification is enabled and `GMAIL_APP_PASSWORD` contains the 16-character App Password, not the normal Gmail password. Spaces in the displayed App Password may be omitted. Also verify that `CLIENT_URL` is the exact public frontend origin so email links open the correct application.
 
 ## Quality checks
 

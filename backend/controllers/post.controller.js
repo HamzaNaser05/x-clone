@@ -7,7 +7,7 @@ import { createCursorPage, getPaginationParams } from "../utils/pagination.js";
 
 const getCommentInclude = () => ({
     user: {
-        omit: { password: true }
+        omit: { password: true, tokenVersion: true }
     },
     _count: {
         select: { replies: true }
@@ -86,7 +86,7 @@ export const createPost = async (req, res) => {
                 },
                 include: {
                     author: {
-                        omit: { password: true }
+                        omit: { password: true, tokenVersion: true }
                     }
                 }
             });

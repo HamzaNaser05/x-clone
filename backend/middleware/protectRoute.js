@@ -1,5 +1,6 @@
 import prisma from "../db/prisma.js";
 import jwt from "jsonwebtoken"
+import { clearAuthCookie } from "../lib/utils/generateToken.js";
 
 export const protectRoute = async (req, res, next) => {
     try {
@@ -9,7 +10,7 @@ export const protectRoute = async (req, res, next) => {
         }
         const decoded = jwt.verify(token, process.env.JWT_SECRET)
 
-        if (!decoded) {
+        if (!decoded || typeof decoded === "string" || !decoded.userId) {
             return res.status(401).json({ error: "Unauthorized: Invalid Token" })
         }
 
@@ -19,13 +20,26 @@ export const protectRoute = async (req, res, next) => {
         })
 
         if (!user) {
-            return res.status(404).json({ error: "User not found" })
+            clearAuthCookie(res);
+            return res.status(401).json({ error: "Unauthorized: User not found" })
         }
-        req.user = user;
+
+        if ((decoded.tokenVersion ?? 0) !== user.tokenVersion) {
+            clearAuthCookie(res);
+            return res.status(401).json({ error: "Your session has expired. Please log in again." });
+        }
+
+        const { tokenVersion: _tokenVersion, ...safeUser } = user;
+        req.user = safeUser;
         next()
 
     } catch (error) {
-        console.log("Error in protectRoutes middleware", error.message);
+        if (error instanceof jwt.JsonWebTokenError || error instanceof jwt.TokenExpiredError) {
+            clearAuthCookie(res);
+            return res.status(401).json({ error: "Unauthorized: Invalid or expired token" });
+        }
+
+        console.error("Error in protectRoutes middleware", error);
         return res.status(500).json({ error: "internal Server Error" })
     }
 }
