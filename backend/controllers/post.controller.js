@@ -392,7 +392,7 @@ export const getReplies = async (req, res) => {
         const replies = await prisma.comment.findMany({
             where: { parentId },
             orderBy: [
-                { createdAt: "desc" },
+                { createdAt: "asc" },
                 { id: "desc" }
             ],
             take: limit + 1,
