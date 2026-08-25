@@ -4,8 +4,10 @@ import {
     getMe,
     login,
     logout,
+    resendEmailVerification,
     resetPassword,
     signup,
+    verifyEmail,
 } from "../controllers/auth.controller.js"
 import {protectRoute} from "../middleware/protectRoute.js"
 
@@ -20,6 +22,10 @@ router.post("/login", login)
 router.post("/forgot-password", forgotPassword)
 
 router.post("/reset-password/:token", resetPassword)
+
+router.post("/resend-verification", resendEmailVerification)
+
+router.post("/verify-email/:token", verifyEmail)
 
 router.post("/logout", logout)
 

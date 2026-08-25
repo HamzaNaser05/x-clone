@@ -9,11 +9,22 @@ import { apiRequest } from "../../../lib/api";
 
 const LoginPage = () => {
 	const [formData, setFormData] = useState({ username: "", password: "" });
+	const [unverifiedEmail, setUnverifiedEmail] = useState("");
 	const queryClient = useQueryClient();
 
 	const { mutate: login, isPending, isError, error } = useMutation({
 		mutationFn: (credentials) => apiRequest("/api/auth/login", { method: "POST", body: credentials }),
-		onSuccess: (data) => queryClient.setQueryData(["authUser"], data.user || data),
+		onMutate: () => setUnverifiedEmail(""),
+		onSuccess: (data) => {
+			sessionStorage.removeItem("pendingVerificationEmail");
+			queryClient.setQueryData(["authUser"], data.user || data);
+		},
+		onError: (loginError) => {
+			if (loginError.code === "EMAIL_NOT_VERIFIED" && loginError.email) {
+				setUnverifiedEmail(loginError.email);
+				sessionStorage.setItem("pendingVerificationEmail", loginError.email);
+			}
+		},
 	});
 
 	const handleSubmit = (event) => {
@@ -63,6 +74,15 @@ const LoginPage = () => {
 						{isPending ? <LoadingSpinner size='sm' /> : "Log in"}
 					</button>
 					{isError && <p className='text-sm text-red-500'>{error.message}</p>}
+					{unverifiedEmail && (
+						<Link
+							to='/verify-email/pending'
+							state={{ email: unverifiedEmail }}
+							className='text-center text-sm font-semibold text-primary hover:underline'
+						>
+							Resend verification email
+						</Link>
+					)}
 				</form>
 				<div className='mt-6 flex w-full max-w-sm flex-col gap-2'>
 					<p className='text-lg text-white'>{"Don't"} have an account?</p>

@@ -15,6 +15,8 @@ import adminRoutes from "./routes/admin.routes.js";
 import {
     apiRateLimiter,
     authRateLimiter,
+    emailVerificationAttemptRateLimiter,
+    emailVerificationRequestRateLimiter,
     passwordResetAttemptRateLimiter,
     passwordResetRequestRateLimiter,
 } from "./middleware/rateLimit.js";
@@ -51,6 +53,8 @@ app.use("/api/auth/login", authRateLimiter);
 app.use("/api/auth/signup", authRateLimiter);
 app.use("/api/auth/forgot-password", passwordResetRequestRateLimiter);
 app.use("/api/auth/reset-password", passwordResetAttemptRateLimiter);
+app.use("/api/auth/resend-verification", emailVerificationRequestRateLimiter);
+app.use("/api/auth/verify-email", emailVerificationAttemptRateLimiter);
 app.use("/api", apiRateLimiter);
 
 app.use("/api/auth", authRoutes);

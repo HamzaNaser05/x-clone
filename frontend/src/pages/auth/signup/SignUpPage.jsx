@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { FaUser } from "react-icons/fa";
 import { MdDriveFileRenameOutline, MdOutlineMail, MdPassword } from "react-icons/md";
-import { Link } from "react-router-dom";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link, useNavigate } from "react-router-dom";
+import { useMutation } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 
 import XSvg from "../../../components/svgs/X";
@@ -11,13 +11,15 @@ import { apiRequest } from "../../../lib/api";
 
 const SignUpPage = () => {
 	const [formData, setFormData] = useState({ email: "", username: "", fullName: "", password: "" });
-	const queryClient = useQueryClient();
+	const navigate = useNavigate();
 
 	const { mutate: signUp, isPending, isError, error } = useMutation({
 		mutationFn: (details) => apiRequest("/api/auth/signup", { method: "POST", body: details }),
-		onSuccess: (user) => {
-			toast.success("Account created successfully");
-			queryClient.setQueryData(["authUser"], user);
+		onSuccess: ({ email, message }) => {
+			const pendingEmail = email || formData.email.trim();
+			sessionStorage.setItem("pendingVerificationEmail", pendingEmail);
+			toast.success(message || "Account created. Check your email.");
+			navigate("/verify-email/pending", { state: { email: pendingEmail } });
 		},
 	});
 

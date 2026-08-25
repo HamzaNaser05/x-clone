@@ -41,3 +41,21 @@ export const passwordResetAttemptRateLimiter = rateLimit({
         error: "Too many password reset attempts. Please wait 15 minutes and try again.",
     },
 });
+
+export const emailVerificationRequestRateLimiter = rateLimit({
+    ...commonOptions,
+    windowMs: 60 * 60 * 1000,
+    limit: 5,
+    message: {
+        error: "Too many verification email requests. Please try again in an hour.",
+    },
+});
+
+export const emailVerificationAttemptRateLimiter = rateLimit({
+    ...commonOptions,
+    windowMs: 15 * 60 * 1000,
+    limit: 20,
+    message: {
+        error: "Too many email verification attempts. Please wait 15 minutes and try again.",
+    },
+});

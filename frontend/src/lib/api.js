@@ -19,6 +19,8 @@ export const apiRequest = async (path, options = {}) => {
 	if (!response.ok) {
 		const error = new Error(data?.error || data?.message || "Something went wrong");
 		error.status = response.status;
+		error.code = data?.code;
+		error.email = data?.email;
 		throw error;
 	}
 
