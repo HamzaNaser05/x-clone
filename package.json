@@ -26,8 +26,8 @@
     "express": "^5.2.1",
     "express-rate-limit": "^8.6.2",
     "jsonwebtoken": "^9.0.3",
-    "nodemailer": "^9.0.5",
-    "pg": "^8.23.0"
+    "pg": "^8.23.0",
+    "resend": "^6.22.0"
   },
   "devDependencies": {
     "env-cmd": "^11.0.0",

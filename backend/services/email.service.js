@@ -1,6 +1,8 @@
-import nodemailer from "nodemailer";
+import crypto from "node:crypto";
+import { Resend } from "resend";
 
-let transporter;
+const EMAIL_REQUEST_TIMEOUT_MS = 10_000;
+let resendClient;
 
 const escapeHtml = (value) =>
     String(value)
@@ -10,25 +12,18 @@ const escapeHtml = (value) =>
         .replaceAll("<", "&lt;")
         .replaceAll(">", "&gt;");
 
-const getTransporter = () => {
-    const user = process.env.GMAIL_USER?.trim();
-    const password = process.env.GMAIL_APP_PASSWORD?.replace(/\s/g, "");
+const getResendClient = () => {
+    const apiKey = process.env.RESEND_API_KEY?.trim();
 
-    if (!user || !password) {
-        throw new Error("Gmail email credentials are not configured");
+    if (!apiKey) {
+        throw new Error("RESEND_API_KEY is not configured");
     }
 
-    if (!transporter) {
-        transporter = nodemailer.createTransport({
-            service: "gmail",
-            auth: {
-                user,
-                pass: password,
-            },
-        });
+    if (!resendClient) {
+        resendClient = new Resend(apiKey);
     }
 
-    return transporter;
+    return resendClient;
 };
 
 export const sendPasswordResetEmail = async ({ email, token }) => {
@@ -37,10 +32,15 @@ export const sendPasswordResetEmail = async ({ email, token }) => {
         process.env.CLIENT_URL || "http://localhost:3000"
     ).toString();
     const safeResetUrl = escapeHtml(resetUrl);
-    const appName = escapeHtml(process.env.EMAIL_FROM_NAME || "X Clone");
+    const appName = escapeHtml(process.env.EMAIL_FROM_NAME?.trim() || "X Clone");
+    const sender = process.env.EMAIL_FROM?.trim() || "X Clone <onboarding@resend.dev>";
+    const idempotencyKey = `password-reset-${crypto
+        .createHash("sha256")
+        .update(token)
+        .digest("hex")}`;
 
-    return getTransporter().sendMail({
-        from: `"${process.env.EMAIL_FROM_NAME || "X Clone"}" <${process.env.GMAIL_USER}>`,
+    const { data, error } = await getResendClient().emails.send({
+        from: sender,
         to: email,
         subject: "Reset your X Clone password",
         text: [
@@ -117,5 +117,17 @@ export const sendPasswordResetEmail = async ({ email, token }) => {
                 </body>
             </html>
         `,
+    }, {
+        idempotencyKey,
+        signal: AbortSignal.timeout(EMAIL_REQUEST_TIMEOUT_MS),
     });
+
+    if (error) {
+        const resendError = new Error(error.message || "Resend could not send the email");
+        resendError.code = error.name || "RESEND_ERROR";
+        resendError.statusCode = error.statusCode;
+        throw resendError;
+    }
+
+    return data;
 };

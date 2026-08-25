@@ -5,7 +5,7 @@ A full-stack social media application inspired by X/Twitter. Users can publish p
 ## Features
 
 - Account registration and login with an HTTP-only JWT cookie
-- One-time password recovery links delivered through Gmail
+- One-time password recovery links delivered through the Resend HTTPS API
 - API rate limiting with stricter protection for failed authentication attempts
 - Role-based admin dashboard for statistics, user review, and content moderation
 - For You and Following feeds
@@ -102,9 +102,15 @@ DOCKER_PORT=8080
 CLOUDINARY_CLOUD_NAME="your-cloud-name"
 CLOUDINARY_API_KEY="your-api-key"
 CLOUDINARY_API_SECRET="your-api-secret"
+
+RESEND_API_KEY="re_your-resend-api-key"
+EMAIL_FROM="X Clone <onboarding@resend.dev>"
+EMAIL_FROM_NAME="X Clone"
 ```
 
 `NODE_ENV=development` is important when running locally. In any other mode, the authentication cookie is marked `secure` and therefore requires HTTPS.
+
+The Resend testing sender can only deliver to the email associated with your Resend account. Verify a domain in Resend and update `EMAIL_FROM` before sending password reset messages to other users.
 
 Never commit `.env`; it is already excluded by `.gitignore`.
 
@@ -441,7 +447,7 @@ For production, consider direct signed browser uploads to Cloudinary to avoid se
 - Disable proxy buffering for `/api/notifications/stream`.
 - Apply migrations with `npx prisma migrate deploy` during deployment.
 - Keep Cloudinary and database credentials in the deployment platform’s secret manager.
-- Configure `GMAIL_USER`, `GMAIL_APP_PASSWORD`, and `EMAIL_FROM_NAME` as deployment secrets for password recovery.
+- Configure `RESEND_API_KEY`, `EMAIL_FROM`, and `EMAIL_FROM_NAME` as deployment secrets for password recovery.
 
 ## Troubleshooting
 
@@ -490,7 +496,7 @@ Verify all three Cloudinary variables. Post images must be valid image data URLs
 
 ### Password reset email fails
 
-Confirm that Gmail 2-Step Verification is enabled and `GMAIL_APP_PASSWORD` contains the 16-character App Password, not the normal Gmail password. Spaces in the displayed App Password may be omitted. Also verify that `CLIENT_URL` is the exact public frontend origin so email links open the correct application.
+Confirm that `RESEND_API_KEY` is valid and `EMAIL_FROM` uses a sender allowed by your Resend account. The testing sender `onboarding@resend.dev` can only deliver to the email associated with your Resend account; sending to other users requires a verified domain. Also verify that `CLIENT_URL` is the exact public frontend origin so email links open the correct application.
 
 ## Quality checks
 
