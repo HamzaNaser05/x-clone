@@ -25,11 +25,18 @@ const useNotificationStream = () => {
 			}
 		};
 
+		const handleNotificationRefresh = () => {
+			queryClient.invalidateQueries({ queryKey: ["unreadNotifications"] });
+			queryClient.invalidateQueries({ queryKey: ["notifications"] });
+		};
+
 		eventSource.addEventListener("notification", handleNotification);
+		eventSource.addEventListener("notification-refresh", handleNotificationRefresh);
 		eventSource.addEventListener("unread-count", handleUnreadCount);
 
 		return () => {
 			eventSource.removeEventListener("notification", handleNotification);
+			eventSource.removeEventListener("notification-refresh", handleNotificationRefresh);
 			eventSource.removeEventListener("unread-count", handleUnreadCount);
 			eventSource.close();
 		};

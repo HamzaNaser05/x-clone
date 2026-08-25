@@ -1,9 +1,23 @@
 import prisma from "../db/prisma.js";
 import { deleteImage, uploadImage } from "../services/cloudinary.service.js";
-import { publishNotification } from "../services/notificationStream.service.js";
+import {
+    publishNotification,
+    publishNotificationRefresh,
+} from "../services/notificationStream.service.js";
 import { getPostInclude, serializePost } from "../services/postQuery.service.js";
 import { getProfileFeedPage } from "../services/profileFeed.service.js";
+import { syncMentionNotifications } from "../services/mention.service.js";
 import { createCursorPage, getPaginationParams } from "../utils/pagination.js";
+
+const publishMentionChanges = ({ createdNotifications, removedRecipientIds }) => {
+    for (const notification of createdNotifications) {
+        publishNotification(notification.toUserId, notification);
+    }
+
+    for (const recipientId of removedRecipientIds) {
+        publishNotificationRefresh(recipientId);
+    }
+};
 
 const getCommentInclude = () => ({
     user: {
@@ -73,7 +87,7 @@ export const createPost = async (req, res) => {
             imageUrl = await uploadImage(img);
         }
 
-        const { post, followerIds } = await prisma.$transaction(async (tx) => {
+        const { post, followerIds, mentionChanges } = await prisma.$transaction(async (tx) => {
             const followers = await tx.follow.findMany({
                 where: { followingId: userId },
                 select: { followerId: true }
@@ -90,7 +104,15 @@ export const createPost = async (req, res) => {
                     }
                 }
             });
-            const recipientIds = followers.map(({ followerId }) => followerId);
+            const createdMentionChanges = await syncMentionNotifications(tx, {
+                text: trimmedText,
+                fromUserId: userId,
+                postId: createdPost.id,
+            });
+            const mentionedRecipientIds = new Set(createdMentionChanges.recipientIds);
+            const recipientIds = followers
+                .map(({ followerId }) => followerId)
+                .filter((followerId) => !mentionedRecipientIds.has(followerId));
 
             if (recipientIds.length > 0) {
                 await tx.notification.createMany({
@@ -105,7 +127,8 @@ export const createPost = async (req, res) => {
 
             return {
                 post: createdPost,
-                followerIds: recipientIds
+                followerIds: recipientIds,
+                mentionChanges: createdMentionChanges,
             };
         });
 
@@ -118,6 +141,7 @@ export const createPost = async (req, res) => {
                 createdAt: post.createdAt
             });
         }
+        publishMentionChanges(mentionChanges);
 
         return res.status(201).json(post);
     } catch (error) {
@@ -181,10 +205,23 @@ export const updatePost = async (req, res) => {
             return res.status(403).json({ error: "You are not authorized to edit this post" });
         }
 
-        const updatedPost = await prisma.post.update({
-            where: { id: postId },
-            data: { text }
+        const { updatedPost, mentionChanges } = await prisma.$transaction(async (tx) => {
+            const savedPost = await tx.post.update({
+                where: { id: postId },
+                data: { text }
+            });
+            const updatedMentionChanges = await syncMentionNotifications(tx, {
+                text,
+                fromUserId: userId,
+                postId,
+            });
+
+            return {
+                updatedPost: savedPost,
+                mentionChanges: updatedMentionChanges,
+            };
         });
+        publishMentionChanges(mentionChanges);
 
         return res.status(200).json(updatedPost);
     } catch (error) {
@@ -213,33 +250,44 @@ export const commentOnPost = async (req, res) => {
             return res.status(404).json({ message: "Post not found" });
         }
 
-        const commentQuery = prisma.comment.create({
-            data: {
+        const { comment, notification, mentionChanges } = await prisma.$transaction(async (tx) => {
+            const createdComment = await tx.comment.create({
+                data: {
+                    text,
+                    postId,
+                    userId
+                },
+                include: getCommentInclude()
+            });
+            const createdMentionChanges = await syncMentionNotifications(tx, {
                 text,
+                fromUserId: userId,
                 postId,
-                userId
-            },
-            include: getCommentInclude()
+                commentId: createdComment.id,
+            });
+            const shouldCreateCommentNotification = post.authorId !== userId
+                && !createdMentionChanges.recipientIds.includes(post.authorId);
+            const createdNotification = shouldCreateCommentNotification
+                ? await tx.notification.create({
+                    data: {
+                        type: "comment",
+                        toUserId: post.authorId,
+                        fromUserId: userId,
+                        postId,
+                        commentId: createdComment.id,
+                    }
+                })
+                : null;
+
+            return {
+                comment: createdComment,
+                notification: createdNotification,
+                mentionChanges: createdMentionChanges,
+            };
         });
 
-        if (post.authorId === userId) {
-            const comment = await commentQuery;
-            return res.status(201).json(serializeComment(comment));
-        }
-
-        const [comment, notification] = await prisma.$transaction([
-            commentQuery,
-            prisma.notification.create({
-                data: {
-                    type: "comment",
-                    toUserId: post.authorId,
-                    fromUserId: userId,
-                    postId
-                }
-            })
-        ]);
-
-        publishNotification(post.authorId, notification);
+        if (notification) publishNotification(post.authorId, notification);
+        publishMentionChanges(mentionChanges);
         return res.status(201).json(serializeComment(comment));
     } catch (error) {
         console.error("Error commenting on post:", error);
@@ -261,7 +309,8 @@ export const updateComment = async (req, res) => {
             where: { id: commentId },
             select: {
                 id: true,
-                userId: true
+                userId: true,
+                postId: true,
             }
         });
 
@@ -273,11 +322,25 @@ export const updateComment = async (req, res) => {
             return res.status(403).json({ error: "You are not authorized to edit this comment" });
         }
 
-        const updatedComment = await prisma.comment.update({
-            where: { id: commentId },
-            data: { text },
-            include: getCommentInclude()
+        const { updatedComment, mentionChanges } = await prisma.$transaction(async (tx) => {
+            const savedComment = await tx.comment.update({
+                where: { id: commentId },
+                data: { text },
+                include: getCommentInclude()
+            });
+            const updatedMentionChanges = await syncMentionNotifications(tx, {
+                text,
+                fromUserId: userId,
+                postId: comment.postId,
+                commentId,
+            });
+
+            return {
+                updatedComment: savedComment,
+                mentionChanges: updatedMentionChanges,
+            };
         });
+        publishMentionChanges(mentionChanges);
 
         return res.status(200).json(serializeComment(updatedComment));
     } catch (error) {
@@ -442,34 +505,45 @@ export const replyToComment = async (req, res) => {
             return res.status(400).json({ error: "Only one level of replies is supported" });
         }
 
-        const replyQuery = prisma.comment.create({
-            data: {
+        const { reply, notification, mentionChanges } = await prisma.$transaction(async (tx) => {
+            const createdReply = await tx.comment.create({
+                data: {
+                    text,
+                    postId: parentComment.postId,
+                    userId,
+                    parentId
+                },
+                include: getCommentInclude()
+            });
+            const createdMentionChanges = await syncMentionNotifications(tx, {
                 text,
+                fromUserId: userId,
                 postId: parentComment.postId,
-                userId,
-                parentId
-            },
-            include: getCommentInclude()
+                commentId: createdReply.id,
+            });
+            const shouldCreateReplyNotification = parentComment.userId !== userId
+                && !createdMentionChanges.recipientIds.includes(parentComment.userId);
+            const createdNotification = shouldCreateReplyNotification
+                ? await tx.notification.create({
+                    data: {
+                        type: "reply",
+                        toUserId: parentComment.userId,
+                        fromUserId: userId,
+                        postId: parentComment.postId,
+                        commentId: createdReply.id,
+                    }
+                })
+                : null;
+
+            return {
+                reply: createdReply,
+                notification: createdNotification,
+                mentionChanges: createdMentionChanges,
+            };
         });
 
-        if (parentComment.userId === userId) {
-            const reply = await replyQuery;
-            return res.status(201).json(serializeComment(reply));
-        }
-
-        const [reply, notification] = await prisma.$transaction([
-            replyQuery,
-            prisma.notification.create({
-                data: {
-                    type: "reply",
-                    toUserId: parentComment.userId,
-                    fromUserId: userId,
-                    postId: parentComment.postId
-                }
-            })
-        ]);
-
-        publishNotification(parentComment.userId, notification);
+        if (notification) publishNotification(parentComment.userId, notification);
+        publishMentionChanges(mentionChanges);
         return res.status(201).json(serializeComment(reply));
     } catch (error) {
         console.error("Error replying to comment:", error);

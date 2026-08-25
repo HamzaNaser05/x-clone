@@ -1,5 +1,5 @@
 import { BiRepost } from "react-icons/bi";
-import { FaHeart, FaRegComment, FaRegFileAlt, FaReply, FaUser } from "react-icons/fa";
+import { FaAt, FaHeart, FaRegComment, FaRegFileAlt, FaReply, FaUser } from "react-icons/fa";
 import { IoSettingsOutline } from "react-icons/io5";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -34,6 +34,26 @@ const notificationDetails = {
 		message: "created a new post",
 		icon: <FaRegFileAlt className='mt-1 h-7 w-7 shrink-0 text-primary' />,
 	},
+	mention: {
+		message: "mentioned you",
+		icon: <FaAt className='mt-1 h-7 w-7 shrink-0 text-primary' />,
+	},
+};
+
+const getNotificationTarget = (notification) => {
+	if (!notification.postId) return `/profile/${notification.from?.username}`;
+	if (!notification.commentId) return `/post/${notification.postId}`;
+	return `/post/${notification.postId}?comment=${notification.commentId}`;
+};
+
+const getNotificationMessage = (notification) => {
+	if (notification.type === "mention") {
+		return notification.commentId
+			? "mentioned you in a comment"
+			: "mentioned you in a post";
+	}
+
+	return notificationDetails[notification.type]?.message || "sent you a notification";
 };
 
 const NotificationPage = () => {
@@ -80,13 +100,13 @@ const NotificationPage = () => {
 			{!isLoading && !isError && notifications.length === 0 && (
 				<div className='px-6 py-14 text-center'>
 					<p className='font-bold'>No notifications yet</p>
-					<p className='mt-1 text-sm text-slate-500'>New posts, likes, comments, replies, reposts, and followers will appear here.</p>
+					<p className='mt-1 text-sm text-slate-500'>New posts, mentions, likes, comments, replies, reposts, and followers will appear here.</p>
 				</div>
 			)}
 			{notifications.map((notification) => (
 				<article className={`border-b border-gray-800 p-4 ${notification.read ? "" : "bg-primary/5"}`} key={notification.id}>
 					<Link
-						to={notification.postId ? `/post/${notification.postId}` : `/profile/${notification.from?.username}`}
+						to={getNotificationTarget(notification)}
 						className='flex items-start gap-3'
 					>
 						{notificationDetails[notification.type]?.icon}
@@ -98,7 +118,7 @@ const NotificationPage = () => {
 							</div>
 							<p>
 								<span className='font-bold hover:underline'>@{notification.from?.username}</span>{" "}
-								{notificationDetails[notification.type]?.message || "sent you a notification"}
+								{getNotificationMessage(notification)}
 							</p>
 							<time className='text-xs text-slate-500' dateTime={notification.createdAt}>
 								{formatPostDate(notification.createdAt)}

@@ -31,6 +31,15 @@ export const publishNotification = (userId, notification) => {
     }
 };
 
+export const publishNotificationRefresh = (userId) => {
+    const userClients = clientsByUser.get(userId);
+    if (!userClients) return;
+
+    for (const response of userClients) {
+        writeEvent(response, "notification-refresh", {});
+    }
+};
+
 export const publishUnreadCount = (userId, count) => {
     const userClients = clientsByUser.get(userId);
     if (!userClients) return;

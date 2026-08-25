@@ -4,6 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 
 import LoadingSpinner from "./LoadingSpinner";
+import MentionTextarea from "./MentionTextarea";
 import { apiRequest } from "../../lib/api";
 
 const EditPostDialog = ({ post, onUpdated }) => {
@@ -48,10 +49,10 @@ const EditPostDialog = ({ post, onUpdated }) => {
 			<dialog ref={dialogRef} className='modal' aria-labelledby={`edit-post-title-${post.id}`}>
 				<form className='modal-box rounded-2xl border border-gray-700 bg-black' onSubmit={submitEdit}>
 					<h2 id={`edit-post-title-${post.id}`} className='text-xl font-bold'>Edit post</h2>
-					<textarea
+					<MentionTextarea
 						className='textarea mt-4 min-h-32 w-full resize-none rounded-xl border-gray-700 bg-transparent focus:outline-none'
 						value={text}
-						onChange={(event) => setText(event.target.value)}
+						onValueChange={setText}
 						autoFocus
 					/>
 					<p className='mt-2 text-xs text-slate-500'>The post image will stay unchanged.</p>

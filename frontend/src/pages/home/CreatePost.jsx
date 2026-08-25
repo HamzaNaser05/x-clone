@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 
 import LoadingSpinner from "../../components/common/LoadingSpinner";
+import MentionTextarea from "../../components/common/MentionTextarea";
 import { apiRequest } from "../../lib/api";
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -64,11 +65,11 @@ const CreatePost = () => {
 			</div>
 		</div>
 		<form className='flex w-full min-w-0 flex-col gap-2' onSubmit={handleSubmit}>
-			<textarea
+			<MentionTextarea
 				className='textarea w-full resize-none border-none bg-transparent p-0 text-lg focus:outline-none'
-				placeholder='What is happening?!'
+				placeholder='What is happening? Use @username to mention someone'
 				value={text}
-				onChange={(event) => setText(event.target.value)}
+				onValueChange={setText}
 				maxLength={1000}
 			/>
 			{img && (

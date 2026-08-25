@@ -1,14 +1,15 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FaRegComment } from "react-icons/fa";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 
 import CommentItem from "./CommentItem";
 import LoadingSpinner from "./LoadingSpinner";
+import MentionTextarea from "./MentionTextarea";
 import { apiRequest } from "../../lib/api";
 import { updatePostCaches } from "../../lib/postCache";
 
-const CommentsDialog = ({ postId, commentCount, authUserId }) => {
+const CommentsDialog = ({ postId, commentCount, authUserId, initialCommentId = null }) => {
 	const dialogRef = useRef(null);
 	const [isOpen, setIsOpen] = useState(false);
 	const [text, setText] = useState("");
@@ -35,6 +36,12 @@ const CommentsDialog = ({ postId, commentCount, authUserId }) => {
 		enabled: isOpen,
 	});
 	const comments = data?.pages.flatMap((page) => page.comments) || [];
+
+	useEffect(() => {
+		if (!initialCommentId || dialogRef.current?.open) return;
+		setIsOpen(true);
+		dialogRef.current?.showModal();
+	}, [initialCommentId]);
 
 	const changeCommentCount = (amount) => {
 		updatePostCaches(queryClient, postId, (post) => ({
@@ -157,11 +164,13 @@ const CommentsDialog = ({ postId, commentCount, authUserId }) => {
 						)}
 					</div>
 					<form className='mt-4 flex items-center gap-2 border-t border-gray-800 pt-3' onSubmit={submitComment}>
-						<textarea
+						<MentionTextarea
+							wrapperClassName='w-full'
+							menuPlacement='top'
 							className='textarea w-full resize-none rounded-xl border-gray-700 bg-transparent focus:outline-none'
-							placeholder='Add a comment...'
+							placeholder='Add a comment… Use @username to mention someone'
 							value={text}
-							onChange={(event) => setText(event.target.value)}
+							onValueChange={setText}
 						/>
 						<button className='btn btn-primary btn-sm rounded-full text-white' disabled={!text.trim() || isPending}>
 							{isPending ? <LoadingSpinner size='sm' /> : "Post"}

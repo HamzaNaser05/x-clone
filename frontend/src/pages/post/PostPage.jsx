@@ -1,5 +1,5 @@
 import { FaArrowLeft } from "react-icons/fa6";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
 import LoadingSpinner from "../../components/common/LoadingSpinner";
@@ -8,6 +8,8 @@ import { apiRequest } from "../../lib/api";
 
 const PostPage = () => {
 	const { id } = useParams();
+	const [searchParams] = useSearchParams();
+	const commentId = searchParams.get("comment");
 	const { data: post, isLoading, isError, error } = useQuery({
 		queryKey: ["post", id],
 		queryFn: () => apiRequest(`/api/posts/${id}`),
@@ -30,7 +32,7 @@ const PostPage = () => {
 					<p className='mt-1 text-sm text-red-400'>{error.message}</p>
 				</div>
 			)}
-			{post && <Post post={post} />}
+			{post && <Post post={post} initialCommentId={commentId} />}
 		</main>
 	);
 };

@@ -11,13 +11,14 @@ import EditPostDialog from "./EditPostDialog";
 import ImagePreviewModal from "./ImagePreviewModal";
 import LoadingSpinner from "./LoadingSpinner";
 import AdminBadge from "./AdminBadge";
+import MentionText from "./MentionText";
 import { apiRequest } from "../../lib/api";
 import { updatePostCaches } from "../../lib/postCache";
 import { formatPostDate, wasEdited } from "../../utils/date";
 
 const ownerId = (item) => (typeof item === "string" ? item : item?.userId || item?.id);
 
-const Post = ({ post }) => {
+const Post = ({ post, initialCommentId = null }) => {
 	const deleteDialogRef = useRef(null);
 	const [previewImage, setPreviewImage] = useState(null);
 	const queryClient = useQueryClient();
@@ -134,7 +135,7 @@ const Post = ({ post }) => {
 			</div>
 
 			<div className='mt-1 flex flex-col gap-3 overflow-hidden'>
-				{post.text && <p className='whitespace-pre-wrap break-words'>{post.text}</p>}
+				{post.text && <p className='whitespace-pre-wrap break-words'><MentionText text={post.text} /></p>}
 				{post.img && (
 					<button
 						type='button'
@@ -152,6 +153,7 @@ const Post = ({ post }) => {
 					postId={post.id}
 					commentCount={commentCount}
 					authUserId={authUser?.id}
+					initialCommentId={initialCommentId}
 				/>
 
 				<button

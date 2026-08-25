@@ -13,6 +13,7 @@ enum NotificationType {
   reply
   repost
   post
+  mention
 }
 
 enum UserRole {
@@ -83,10 +84,11 @@ model Comment {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  post    Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
-  user    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  parent  Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies Comment[] @relation("CommentReplies")
+  post          Post           @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent        Comment?       @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies       Comment[]      @relation("CommentReplies")
+  notifications Notification[]
 
   @@index([postId, createdAt])
   @@index([parentId, createdAt])
@@ -151,18 +153,21 @@ model Notification {
   fromUserId String           @map("from_user_id") @db.Uuid
   toUserId   String           @map("to_user_id") @db.Uuid
   postId     String?          @map("post_id") @db.Uuid
+  commentId  String?          @map("comment_id") @db.Uuid
   type       NotificationType
   read       Boolean          @default(false)
   createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz
   updatedAt  DateTime         @updatedAt @map("updated_at") @db.Timestamptz
 
-  from User  @relation("NotificationFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
-  to   User  @relation("NotificationTo", fields: [toUserId], references: [id], onDelete: Cascade)
-  post Post? @relation(fields: [postId], references: [id], onDelete: Cascade)
+  from    User     @relation("NotificationFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  to      User     @relation("NotificationTo", fields: [toUserId], references: [id], onDelete: Cascade)
+  post    Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  comment Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
 
   @@index([toUserId, createdAt(sort: Desc)])
   @@index([toUserId, read])
   @@index([postId])
+  @@index([commentId])
   @@map("notifications")
 }
 

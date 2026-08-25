@@ -5,6 +5,8 @@ import toast from "react-hot-toast";
 
 import LoadingSpinner from "./LoadingSpinner";
 import AdminBadge from "./AdminBadge";
+import MentionText from "./MentionText";
+import MentionTextarea from "./MentionTextarea";
 import { apiRequest } from "../../lib/api";
 import { formatPostDate, wasEdited } from "../../utils/date";
 
@@ -189,10 +191,12 @@ const CommentItem = ({
 
 					{isEditing ? (
 						<form className='mt-2' onSubmit={submitEdit}>
-							<textarea
+							<MentionTextarea
+								wrapperClassName='w-full'
+								menuPlacement='top'
 								className='textarea min-h-20 w-full resize-none rounded-xl border-gray-700 bg-transparent focus:outline-none'
 								value={text}
-								onChange={(event) => setText(event.target.value)}
+								onValueChange={setText}
 								autoFocus
 							/>
 							<div className='mt-2 flex justify-end gap-2'>
@@ -209,7 +213,7 @@ const CommentItem = ({
 							</div>
 						</form>
 					) : (
-						<p className='whitespace-pre-wrap break-words text-sm'>{comment.text}</p>
+						<p className='whitespace-pre-wrap break-words text-sm'><MentionText text={comment.text} /></p>
 					)}
 
 					{!isReply && !isEditing && (
@@ -235,11 +239,13 @@ const CommentItem = ({
 
 					{showReplyForm && !isReply && (
 						<form className='mt-2 flex items-end gap-2' onSubmit={submitReply}>
-							<textarea
+							<MentionTextarea
+								wrapperClassName='min-w-0 flex-1'
+								menuPlacement='top'
 								className='textarea min-h-16 flex-1 resize-none rounded-xl border-gray-700 bg-transparent focus:outline-none'
 								placeholder={`Reply to @${comment.user?.username || "user"}`}
 								value={replyText}
-								onChange={(event) => setReplyText(event.target.value)}
+								onValueChange={setReplyText}
 								autoFocus
 							/>
 							<button className='btn btn-primary btn-xs rounded-full text-white' disabled={!replyText.trim() || isReplying}>

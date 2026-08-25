@@ -15,13 +15,14 @@ A full-stack social media application inspired by X/Twitter. Users can publish p
 - Editable and deletable owned posts, comments, and replies
 - Post deletion with a confirmation dialog
 - Likes, reposts, comments, and one-level reply threads
+- User autocomplete and clickable `@username` mentions in posts, comments, and replies
 - Private bookmarks
 - User profiles with editable profile/cover images and real follower counts
 - Follow and unfollow actions with accurate button state
 - Profile feeds containing both authored posts and reposts
 - Case-insensitive search for people and post text
 - Cursor pagination for posts, profile activity, comments, replies, bookmarks, and search
-- Notifications for follows, likes, comments, replies, reposts, and new posts from followed users
+- Notifications for follows, mentions, likes, comments, replies, reposts, and new posts from followed users
 - Live unread notification badges using Server-Sent Events (SSE)
 - Responsive dark interface built with Tailwind CSS and daisyUI
 - Custom 404 page for unknown routes
@@ -275,11 +276,11 @@ twitter-clone/
 | `Like` | Unique user/post likes |
 | `Repost` | Unique user/post reposts with activity timestamps |
 | `Bookmark` | Private saved posts |
-| `Notification` | Follow and post-related notification events |
+| `Notification` | Follow, post, interaction, and mention notification events |
 | `PasswordResetToken` | Hashed, expiring, one-time account recovery tokens |
 | `EmailVerificationToken` | Hashed, expiring, one-time account activation tokens |
 
-Deleting a user or post cascades through its related records. Notification types are `follow`, `like`, `comment`, `reply`, `repost`, and `post`.
+Deleting a user, post, or comment cascades through its related mention notifications. Notification types are `follow`, `like`, `comment`, `reply`, `repost`, `post`, and `mention`.
 
 ## Authentication
 
